@@ -1,0 +1,4501 @@
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/.env ====================
+# Database connection string
+MONGO_URI="mongodb+srv://Jay:123@cluster0.gl310rm.mongodb.net/mean-ecommerce?retryWrites=true&w=majority&appName=Cluster0"
+
+# Frontend URL (adjust if needed)
+ORIGIN="http://localhost:3000"
+
+# Email credentials for sending password resets and OTPs
+EMAIL="developermobile120@gmail.com"
+PASSWORD="btra cxed tcgq ilnp"
+
+# Token and cookie expiration settings
+LOGIN_TOKEN_EXPIRATION="30d"  # Days
+OTP_EXPIRATION_TIME="120000"  # Milliseconds
+PASSWORD_RESET_TOKEN_EXPIRATION="2m"  # Minutes
+COOKIE_EXPIRATION_DAYS="30"    # Days
+
+# Secret key for jwt security
+SECRET_KEY="your-secret-key"
+
+# Environment (production/development)
+PRODUCTION="false" # Initially set to false for development
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/backend-combined.txt ====================
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Address.js ====================
+const Address = require("../models/Address")
+
+exports.create=async(req,res)=>{
+    try {
+        const created=new Address(req.body)
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error adding address, please trying again later'})
+    }
+}
+
+exports.getByUserId = async (req, res) => {
+    try {
+        const {id}=req.params
+        const results=await Address.find({user:id})
+        res.status(200).json(results)
+    
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error fetching addresses, please try again later'})
+    }
+};
+
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Address.findByIdAndUpdate(id,req.body,{new:true})
+        console.log(updated);
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error updating address, please try again later'})
+    }
+}
+
+exports.deleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const deleted=await Address.findByIdAndDelete(id)
+        res.status(200).json(deleted)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error deleting address, please try again later'})
+    }
+}
+
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Auth.js ====================
+const User = require("../models/User");
+const bcrypt=require('bcryptjs');
+const { sendMail } = require("../utils/Emails");
+const { generateOTP } = require("../utils/GenerateOtp");
+const Otp = require("../models/OTP");
+const { sanitizeUser } = require("../utils/SanitizeUser");
+const { generateToken } = require("../utils/GenerateToken");
+const PasswordResetToken = require("../models/PasswordResetToken");
+
+exports.signup=async(req,res)=>{
+    try {
+        const existingUser=await User.findOne({email:req.body.email})
+        
+        // if user already exists
+        if(existingUser){
+            return res.status(400).json({"message":"User already exists"})
+        }
+
+        // hashing the password
+        const hashedPassword=await bcrypt.hash(req.body.password,10)
+        req.body.password=hashedPassword
+
+        // creating new user
+        const createdUser=new User(req.body)
+        await createdUser.save()
+
+        // getting secure user info
+        const secureInfo=sanitizeUser(createdUser)
+
+        // generating jwt token
+        const token=generateToken(secureInfo)
+
+        // sending jwt token in the response cookies
+        res.cookie('token',token,{
+            sameSite:process.env.PRODUCTION==='true'?"None":'Lax',
+            maxAge:new Date(Date.now() + (parseInt(process.env.COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000))),
+            httpOnly:true,
+            secure:process.env.PRODUCTION==='true'?true:false
+        })
+
+        res.status(201).json(sanitizeUser(createdUser))
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error occured during signup, please try again later"})
+    }
+}
+
+exports.login=async(req,res)=>{
+    try {
+        // checking if user exists or not
+        const existingUser=await User.findOne({email:req.body.email})
+
+        // if exists and password matches the hash
+        if(existingUser && (await bcrypt.compare(req.body.password,existingUser.password))){
+
+            // getting secure user info
+            const secureInfo=sanitizeUser(existingUser)
+
+            // generating jwt token
+            const token=generateToken(secureInfo)
+
+            // sending jwt token in the response cookies
+            res.cookie('token',token,{
+                sameSite:process.env.PRODUCTION==='true'?"None":'Lax',
+                maxAge:new Date(Date.now() + (parseInt(process.env.COOKIE_EXPIRATION_DAYS * 24 * 60 * 60 * 1000))),
+                httpOnly:true,
+                secure:process.env.PRODUCTION==='true'?true:false
+            })
+            return res.status(200).json(sanitizeUser(existingUser))
+        }
+
+        res.clearCookie('token');
+        return res.status(404).json({message:"Invalid Credentails"})
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Some error occured while logging in, please try again later'})
+    }
+}
+
+exports.verifyOtp=async(req,res)=>{
+    try {
+        // checks if user id is existing in the user collection
+        const isValidUserId=await User.findById(req.body.userId)
+
+        // if user id does not exists then returns a 404 response
+        if(!isValidUserId){
+            return res.status(404).json({message:'User not Found, for which the otp has been generated'})
+        }
+
+        // checks if otp exists by that user id
+        const isOtpExisting=await Otp.findOne({user:isValidUserId._id})
+
+        // if otp does not exists then returns a 404 response
+        if(!isOtpExisting){
+            return res.status(404).json({message:'Otp not found'})
+        }
+
+        // checks if the otp is expired, if yes then deletes the otp and returns response accordinly
+        if(isOtpExisting.expiresAt < new Date()){
+            await Otp.findByIdAndDelete(isOtpExisting._id)
+            return res.status(400).json({message:"Otp has been expired"})
+        }
+        
+        // checks if otp is there and matches the hash value then updates the user verified status to true and returns the updated user
+        if(isOtpExisting && (await bcrypt.compare(req.body.otp,isOtpExisting.otp))){
+            await Otp.findByIdAndDelete(isOtpExisting._id)
+            const verifiedUser=await User.findByIdAndUpdate(isValidUserId._id,{isVerified:true},{new:true})
+            return res.status(200).json(sanitizeUser(verifiedUser))
+        }
+
+        // in default case if none of the conidtion matches, then return this response
+        return res.status(400).json({message:'Otp is invalid or expired'})
+
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Some Error occured"})
+    }
+}
+
+exports.resendOtp=async(req,res)=>{
+    try {
+
+        const existingUser=await User.findById(req.body.user)
+
+        if(!existingUser){
+            return res.status(404).json({"message":"User not found"})
+        }
+
+        await Otp.deleteMany({user:existingUser._id})
+
+        const otp=generateOTP()
+        const hashedOtp=await bcrypt.hash(otp,10)
+
+        const newOtp=new Otp({user:req.body.user,otp:hashedOtp,expiresAt:Date.now()+parseInt(process.env.OTP_EXPIRATION_TIME)})
+        await newOtp.save()
+
+        await sendMail(existingUser.email,`OTP Verification for Your MERN-AUTH-REDUX-TOOLKIT Account`,`Your One-Time Password (OTP) for account verification is: <b>${otp}</b>.</br>Do not share this OTP with anyone for security reasons`)
+
+        res.status(201).json({'message':"OTP sent"})
+    } catch (error) {
+        res.status(500).json({'message':"Some error occured while resending otp, please try again later"})
+        console.log(error);
+    }
+}
+
+exports.forgotPassword=async(req,res)=>{
+    let newToken;
+    try {
+        // checks if user provided email exists or not
+        const isExistingUser=await User.findOne({email:req.body.email})
+
+        // if email does not exists returns a 404 response
+        if(!isExistingUser){
+            return res.status(404).json({message:"Provided email does not exists"})
+        }
+
+        await PasswordResetToken.deleteMany({user:isExistingUser._id})
+
+        // if user exists , generates a password reset token
+        const passwordResetToken=generateToken(sanitizeUser(isExistingUser),true)
+
+        // hashes the token
+        const hashedToken=await bcrypt.hash(passwordResetToken,10)
+
+        // saves hashed token in passwordResetToken collection
+        newToken=new PasswordResetToken({user:isExistingUser._id,token:hashedToken,expiresAt:Date.now() + parseInt(process.env.OTP_EXPIRATION_TIME)})
+        await newToken.save()
+
+        // sends the password reset link to the user's mail
+        await sendMail(isExistingUser.email,'Password Reset Link for Your MERN-AUTH-REDUX-TOOLKIT Account',`<p>Dear ${isExistingUser.name},
+
+        We received a request to reset the password for your MERN-AUTH-REDUX-TOOLKIT account. If you initiated this request, please use the following link to reset your password:</p>
+        
+        <p><a href=${process.env.ORIGIN}/reset-password/${isExistingUser._id}/${passwordResetToken} target="_blank">Reset Password</a></p>
+        
+        <p>This link is valid for a limited time. If you did not request a password reset, please ignore this email. Your account security is important to us.
+        
+        Thank you,
+        The MERN-AUTH-REDUX-TOOLKIT Team</p>`)
+
+        res.status(200).json({message:`Password Reset link sent to ${isExistingUser.email}`})
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error occured while sending password reset mail'})
+    }
+}
+
+exports.resetPassword=async(req,res)=>{
+    try {
+
+        // checks if user exists or not
+        const isExistingUser=await User.findById(req.body.userId)
+
+        // if user does not exists then returns a 404 response
+        if(!isExistingUser){
+            return res.status(404).json({message:"User does not exists"})
+        }
+
+        // fetches the resetPassword token by the userId
+        const isResetTokenExisting=await PasswordResetToken.findOne({user:isExistingUser._id})
+
+        // If token does not exists for that userid, then returns a 404 response
+        if(!isResetTokenExisting){
+            return res.status(404).json({message:"Reset Link is Not Valid"})
+        }
+
+        // if the token has expired then deletes the token, and send response accordingly
+        if(isResetTokenExisting.expiresAt < new Date()){
+            await PasswordResetToken.findByIdAndDelete(isResetTokenExisting._id)
+            return res.status(404).json({message:"Reset Link has been expired"})
+        }
+
+        // if token exists and is not expired and token matches the hash, then resets the user password and deletes the token
+        if(isResetTokenExisting && isResetTokenExisting.expiresAt>new Date() && (await bcrypt.compare(req.body.token,isResetTokenExisting.token))){
+
+            // deleting the password reset token
+            await PasswordResetToken.findByIdAndDelete(isResetTokenExisting._id)
+
+            // resets the password after hashing it
+            await User.findByIdAndUpdate(isExistingUser._id,{password:await bcrypt.hash(req.body.password,10)})
+            return res.status(200).json({message:"Password Updated Successfuly"})
+        }
+
+        return res.status(404).json({message:"Reset Link has been expired"})
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error occured while resetting the password, please try again later"})
+    }
+}
+
+exports.logout=async(req,res)=>{
+    try {
+        res.cookie('token',{
+            maxAge:0,
+            sameSite:process.env.PRODUCTION==='true'?"None":'Lax',
+            httpOnly:true,
+            secure:process.env.PRODUCTION==='true'?true:false
+        })
+        res.status(200).json({message:'Logout successful'})
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+exports.checkAuth=async(req,res)=>{
+    try {
+        if(req.user){
+            const user=await User.findById(req.user._id)
+            return res.status(200).json(sanitizeUser(user))
+        }
+        res.sendStatus(401)
+    } catch (error) {
+        console.log(error);
+        res.sendStatus(500)
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Brand.js ====================
+const Brand=require("../models/Brand")
+
+exports.getAll=async(req,res)=>{
+    try {
+        const result=await Brand.find({})
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error fetching brands"})
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Cart.js ====================
+const Cart=require('../models/Cart')
+
+exports.create=async(req,res)=>{
+    try {
+        const created=await new Cart(req.body).populate({path:"product",populate:{path:"brand"}});
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error adding product to cart, please trying again later'})
+    }
+}
+
+exports.getByUserId=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const result = await Cart.find({ user: id }).populate({path:"product",populate:{path:"brand"}});
+
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error fetching cart items, please trying again later'})
+    }
+}
+
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Cart.findByIdAndUpdate(id,req.body,{new:true}).populate({path:"product",populate:{path:"brand"}});
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error updating cart items, please trying again later'})
+    }
+}
+
+exports.deleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const deleted=await Cart.findByIdAndDelete(id)
+        res.status(200).json(deleted)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error deleting cart item, please trying again later'})
+    }
+}
+
+exports.deleteByUserId=async(req,res)=>{
+
+    try {
+        const {id}=req.params
+        await Cart.deleteMany({user:id})
+        res.sendStatus(204)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Some Error occured while resetting your cart"})
+    }
+
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Category.js ====================
+const Category=require("../models/Category")
+
+exports.getAll=async(req,res)=>{
+    try {
+        const result=await Category.find({})
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error fetching categories"})
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Order.js ====================
+const Order = require("../models/Order");
+
+exports.create=async(req,res)=>{
+    try {
+        const created=new Order(req.body)
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error creating an order, please trying again later'})
+    }
+}
+
+exports.getByUserId=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const results=await Order.find({user:id})
+        res.status(200).json(results)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error fetching orders, please trying again later'})
+    }
+}
+
+exports.getAll = async (req, res) => {
+    try {
+        let skip=0
+        let limit=0
+
+        if(req.query.page && req.query.limit){
+            const pageSize=req.query.limit
+            const page=req.query.page
+            skip=pageSize*(page-1)
+            limit=pageSize
+        }
+
+        const totalDocs=await Order.find({}).countDocuments().exec()
+        const results=await Order.find({}).skip(skip).limit(limit).exec()
+
+        res.header("X-Total-Count",totalDocs)
+        res.status(200).json(results)
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error fetching orders, please try again later'})
+    }
+};
+
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Order.findByIdAndUpdate(id,req.body,{new:true})
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error updating order, please try again later'})
+    }
+}
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Product.js ====================
+const { Schema, default: mongoose } = require("mongoose")
+const Product=require("../models/Product")
+
+exports.create=async(req,res)=>{
+    try {
+        const created=new Product(req.body)
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error adding product, please trying again later'})
+    }
+}
+
+exports.getAll = async (req, res) => {
+    try {
+        const filter={}
+        const sort={}
+        let skip=0
+        let limit=0
+
+        if(req.query.brand){
+            filter.brand={$in:req.query.brand}
+        }
+
+        if(req.query.category){
+            filter.category={$in:req.query.category}
+        }
+
+        if(req.query.user){
+            filter['isDeleted']=false
+        }
+
+        if(req.query.sort){
+            sort[req.query.sort]=req.query.order?req.query.order==='asc'?1:-1:1
+        }
+
+        if(req.query.page && req.query.limit){
+
+            const pageSize=req.query.limit
+            const page=req.query.page
+
+            skip=pageSize*(page-1)
+            limit=pageSize
+        }
+
+        const totalDocs=await Product.find(filter).sort(sort).populate("brand").countDocuments().exec()
+        const results=await Product.find(filter).sort(sort).populate("brand").skip(skip).limit(limit).exec()
+
+        res.set("X-Total-Count",totalDocs)
+
+        res.status(200).json(results)
+    
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error fetching products, please try again later'})
+    }
+};
+
+exports.getById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const result=await Product.findById(id).populate("brand").populate("category")
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error getting product details, please try again later'})
+    }
+}
+
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Product.findByIdAndUpdate(id,req.body,{new:true})
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error updating product, please try again later'})
+    }
+}
+
+exports.undeleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const unDeleted=await Product.findByIdAndUpdate(id,{isDeleted:false},{new:true}).populate('brand')
+        res.status(200).json(unDeleted)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error restoring product, please try again later'})
+    }
+}
+
+exports.deleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const deleted=await Product.findByIdAndUpdate(id,{isDeleted:true},{new:true}).populate("brand")
+        res.status(200).json(deleted)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error deleting product, please try again later'})
+    }
+}
+
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Review.js ====================
+const Review=require("../models/Review")
+
+exports.create=async(req,res)=>{
+    try {
+        console.log(req.body);
+        const created=await new Review(req.body).populate({path:'user',select:"-password"})
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({message:'Error posting review, please trying again later'})
+    }
+}
+
+exports.getByProductId=async(req,res)=>{
+    try {
+        const {id}=req.params
+        let skip=0
+        let limit=0
+
+        if(req.query.page && req.query.limit){
+            const pageSize=req.query.limit
+            const page=req.query.page
+
+            skip=pageSize*(page-1)
+            limit=pageSize
+        }
+
+        const totalDocs=await Review.find({product:id}).countDocuments().exec()
+        const result=await Review.find({product:id}).skip(skip).limit(limit).populate('user').exec()
+
+        res.set("X-total-Count",totalDocs)
+        res.status(200).json(result)
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error getting reviews for this product, please try again later'})
+    }
+}
+
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Review.findByIdAndUpdate(id,req.body,{new:true}).populate('user')
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error updating review, please try again later'})
+    }
+}
+
+exports.deleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const deleted=await Review.findByIdAndDelete(id)
+        res.status(200).json(deleted)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error deleting review, please try again later'})
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/User.js ====================
+const User=require("../models/User")
+
+exports.getById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const result=(await User.findById(id)).toObject()
+        delete result.password
+        res.status(200).json(result)
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error getting your details, please try again later'})
+    }
+}
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=(await User.findByIdAndUpdate(id,req.body,{new:true})).toObject()
+        delete updated.password
+        res.status(200).json(updated)
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:'Error getting your details, please try again later'})
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/controllers/Wishlist.js ====================
+const Wishlist = require("../models/Wishlist")
+
+exports.create=async(req,res)=>{
+    try {
+        const created=await new Wishlist(req.body).populate({path:"product",populate:["brand"]})
+        await created.save()
+        res.status(201).json(created)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error adding product to wishlist, please try again later"})
+    }
+}
+exports.getByUserId=async(req,res)=>{
+    try {
+        const {id}=req.params
+        let skip=0
+        let limit=0
+
+        if(req.query.page && req.query.limit){
+            const pageSize=req.query.limit
+            const page=req.query.page
+
+            skip=pageSize*(page-1)
+            limit=pageSize
+        }
+
+        const result=await Wishlist.find({user:id}).skip(skip).limit(limit).populate({path:"product",populate:['brand']})
+        const totalResults=await Wishlist.find({user:id}).countDocuments().exec()
+
+        res.set("X-Total-Count",totalResults)
+        res.status(200).json(result)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error fetching your wishlist, please try again later"})
+    }
+}
+exports.updateById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const updated=await Wishlist.findByIdAndUpdate(id,req.body,{new:true}).populate("product")
+        res.status(200).json(updated)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error updating your wishlist, please try again later"})
+    }
+}
+exports.deleteById=async(req,res)=>{
+    try {
+        const {id}=req.params
+        const deleted=await Wishlist.findByIdAndDelete(id)
+        return res.status(200).json(deleted)
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error deleting that product from wishlist, please try again later"})
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/database/db.js ====================
+require('dotenv').config()
+const mongoose=require("mongoose")
+
+exports.connectToDB=async()=>{
+    try {
+        await mongoose.connect(process.env.MONGO_URI)
+        console.log('connected to DB');
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/index.js ====================
+require("dotenv").config()
+const express=require('express')
+const cors=require('cors')
+const morgan=require("morgan")
+const cookieParser=require("cookie-parser")
+const authRoutes=require("./routes/Auth")
+const productRoutes=require("./routes/Product")
+const orderRoutes=require("./routes/Order")
+const cartRoutes=require("./routes/Cart")
+const brandRoutes=require("./routes/Brand")
+const categoryRoutes=require("./routes/Category")
+const userRoutes=require("./routes/User")
+const addressRoutes=require('./routes/Address')
+const reviewRoutes=require("./routes/Review")
+const wishlistRoutes=require("./routes/Wishlist")
+const { connectToDB } = require("./database/db")
+
+
+// server init
+const server=express()
+
+// database connection
+connectToDB()
+
+
+// middlewares
+server.use(cors({origin:process.env.ORIGIN,credentials:true,exposedHeaders:['X-Total-Count'],methods:['GET','POST','PATCH','DELETE']}))
+server.use(express.json())
+server.use(cookieParser())
+server.use(morgan("tiny"))
+
+// routeMiddleware
+server.use("/auth",authRoutes)
+server.use("/users",userRoutes)
+server.use("/products",productRoutes)
+server.use("/orders",orderRoutes)
+server.use("/cart",cartRoutes)
+server.use("/brands",brandRoutes)
+server.use("/categories",categoryRoutes)
+server.use("/address",addressRoutes)
+server.use("/reviews",reviewRoutes)
+server.use("/wishlist",wishlistRoutes)
+
+
+
+server.get("/",(req,res)=>{
+    res.status(200).json({message:'running'})
+})
+
+server.listen(8000,()=>{
+    console.log('server [STARTED] ~ http://localhost:8000');
+})
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/middleware/VerifyToken.js ====================
+require('dotenv').config()
+const jwt=require('jsonwebtoken')
+const { sanitizeUser } = require('../utils/SanitizeUser')
+
+exports.verifyToken=async(req,res,next)=>{
+    try {
+        // extract the token from request cookies
+        const {token}=req.cookies
+
+        // if token is not there, return 401 response
+        if(!token){
+            return res.status(401).json({message:"Token missing, please login again"})
+        }
+
+        // verifies the token 
+        const decodedInfo=jwt.verify(token,process.env.SECRET_KEY)
+
+        // checks if decoded info contains legit details, then set that info in req.user and calls next
+        if(decodedInfo && decodedInfo._id && decodedInfo.email){
+            req.user=decodedInfo
+            next()
+        }
+
+        // if token is invalid then sends the response accordingly
+        else{
+            return res.status(401).json({message:"Invalid Token, please login again"})
+        }
+        
+    } catch (error) {
+
+        console.log(error);
+        
+        if (error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({ message: "Token expired, please login again" });
+        } 
+        else if (error instanceof jwt.JsonWebTokenError) {
+            return res.status(401).json({ message: "Invalid Token, please login again" });
+        } 
+        else {
+            return res.status(500).json({ message: "Internal Server Error" });
+        }
+    }
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Address.js ====================
+const mongoose=require('mongoose')
+const {Schema}=mongoose
+
+const addressSchema = new Schema({
+    user:{
+      type:Schema.Types.ObjectId,
+      ref:"User",
+      required:true
+    },
+    street: {
+      type: String,
+      required: true,
+    },
+    city: {
+      type: String,
+      required: true,
+    },
+    state: {
+      type: String,
+      required: true,
+    },
+    phoneNumber:{
+      type:String,
+      required:true,
+    },
+    postalCode: {
+      type: String,
+      required: true,
+    },
+    country: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      required: true,
+    },
+  });
+
+module.exports=mongoose.model('Address',addressSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Brand.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+
+const brandSchema=new Schema({
+    name:{
+        type:String,
+        required:true
+    }
+})
+
+module.exports=mongoose.model("Brand",brandSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Cart.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const cartSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        required:true,
+    },
+    product:{
+        type:Schema.Types.ObjectId,
+        ref:"Product",
+        required:true
+    },
+    quantity:{
+        type:Number,
+        default:1,
+    }
+},{versionKey:false})
+
+module.exports=mongoose.model("Cart",cartSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Category.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+
+const categorySchema=new Schema({
+    name:{
+        type:String,
+        required:true
+    }
+})
+
+module.exports=mongoose.model("Category",categorySchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/OTP.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const otpSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        required:true
+    },
+    otp:{
+        type:String,
+        required:true
+    },
+    expiresAt:{
+        type:Date,
+        required:true
+    },
+})
+
+
+
+module.exports=mongoose.model("OTP",otpSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Order.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const orderSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        required:true
+    },
+    item:{
+        type:[Schema.Types.Mixed],
+        required:true
+    },
+    address:{
+        type:[Schema.Types.Mixed],
+        required:true
+    },
+    status:{
+        type:String,
+        enum:['Pending','Dispatched','Out for delivery','Cancelled'],
+        default:'Pending'
+    },
+    paymentMode:{
+        type:String,
+        enum:['COD','UPI','CARD'],
+        required:true
+    },
+    total:{
+        type:Number,
+        required:true
+    },
+    createdAt:{
+        type:Date,
+        default:Date.now
+    },
+},{versionKey:false})
+
+module.exports=mongoose.model("Order",orderSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/PasswordResetToken.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const passwordResetTokenSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        required:true
+    },
+    token:{
+        type:String,
+        required:true
+    },
+    expiresAt:{
+        type:Date,
+        required:true
+    },
+})
+
+
+
+module.exports=mongoose.model("PasswordResetToken",passwordResetTokenSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Product.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const productSchema= new Schema({
+    title:{
+        type:String,
+        required:true
+    },
+    description:{
+        type:String,
+        required:true
+    },
+    price:{
+        type:Number,
+        required:true
+    },
+    discountPercentage: {
+        type: Number,
+        default: 0,
+    },
+    category:{
+        type:Schema.Types.ObjectId,
+        ref:"Category",
+        required:true
+    },
+    brand:{
+        type:Schema.Types.ObjectId,
+        ref:"Brand",
+        required:true
+    },
+    stockQuantity:{
+        type:Number,
+        required:true
+    },
+    thumbnail:{
+        type:String,
+        required:true
+    },
+    images:{
+        type:[String],
+        required:true
+    },
+    isDeleted:{
+        type:Boolean,
+        default:false
+    }
+},{timestamps:true,versionKey:false})
+
+module.exports=mongoose.model('Product',productSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Review.js ====================
+const mongoose=require('mongoose')
+const {Schema}=mongoose
+
+const reviewSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        required:true
+    },
+    product:{
+        type:Schema.Types.ObjectId,
+        ref:"Product",
+        required:true
+    },
+    rating:{
+        type:Number,
+        required:true,
+        min:1,
+        max:5,
+    },
+    comment:{
+        type:String,
+        required:true
+    },
+    createdAt:{
+        type:Date,
+        default:Date.now
+    },
+},{versionKey:false})
+
+
+module.exports=mongoose.model("Review",reviewSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/User.js ====================
+const mongoose=require("mongoose")
+const {Schema}=mongoose
+
+const userSchema=new Schema({
+    name:{
+        type:String,
+        required:true
+    },
+    email:{
+        type:String,
+        unique:true,
+        required:true
+    },
+    password:{
+        type:String,
+        required:true
+    },
+    isVerified:{
+        type:Boolean,
+        default:false
+    },
+    isAdmin:{
+        type:Boolean,
+        default:false
+    }
+})
+
+module.exports=mongoose.model("User",userSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/models/Wishlist.js ====================
+const mongoose=require('mongoose')
+const {Schema}=mongoose
+
+const wishlistSchema=new Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        ref:"User",
+        require:true
+    },
+    product:{
+        type:Schema.Types.ObjectId,
+        ref:"Product",
+        require:true
+    },
+    note:{
+        type:String,
+    }
+},{timestamps:true,versionKey:false})
+
+module.exports=mongoose.model("Wishlist",wishlistSchema)
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/package.json ====================
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed":"node seed/seed.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.2",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Address.js ====================
+const express=require('express')
+const addressController=require("../controllers/Address")
+const router=express.Router()
+
+router
+    .post("/",addressController.create)
+    .get("/user/:id",addressController.getByUserId)
+    .patch('/:id',addressController.updateById)
+    .delete('/:id',addressController.deleteById)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Auth.js ====================
+const express=require('express')
+const router=express.Router()
+const authController=require("../controllers/Auth")
+const { verifyToken } = require('../middleware/VerifyToken')
+
+router
+    .post("/signup",authController.signup)
+    .post('/login',authController.login)
+    .post("/verify-otp",authController.verifyOtp)
+    .post("/resend-otp",authController.resendOtp)
+    .post("/forgot-password",authController.forgotPassword)
+    .post("/reset-password",authController.resetPassword)
+    .get("/check-auth",verifyToken,authController.checkAuth)
+    .get('/logout',authController.logout)
+
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Brand.js ====================
+const express=require("express")
+const brandController=require("../controllers/Brand")
+const router=express.Router()
+
+router
+    .get("/",brandController.getAll)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Cart.js ====================
+const express=require('express')
+const cartController=require('../controllers/Cart')
+const router=express.Router()
+
+router
+    .post("/",cartController.create)
+    .get("/user/:id",cartController.getByUserId)
+    .patch("/:id",cartController.updateById)
+    .delete("/:id",cartController.deleteById)
+    .delete("/user/:id",cartController.deleteByUserId)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Category.js ====================
+const express=require("express")
+const categoryController=require("../controllers/Category")
+const router=express.Router()
+
+router
+    .get("/",categoryController.getAll)
+
+    
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Order.js ====================
+const express=require('express')
+const orderController=require("../controllers/Order")
+const router=express.Router()
+
+
+router
+    .post("/",orderController.create)
+    .get("/",orderController.getAll)
+    .get("/user/:id",orderController.getByUserId)
+    .patch("/:id",orderController.updateById)
+
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Product.js ====================
+const express=require('express')
+const productController=require("../controllers/Product")
+const router=express.Router()
+
+router
+    .post("/",productController.create)
+    .get("/",productController.getAll)
+    .get("/:id",productController.getById)
+    .patch("/:id",productController.updateById)
+    .patch("/undelete/:id",productController.undeleteById)
+    .delete("/:id",productController.deleteById)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Review.js ====================
+const express=require('express')
+const reviewController=require("../controllers/Review")
+const router=express.Router()
+
+
+router
+    .post("/",reviewController.create)
+    .get('/product/:id',reviewController.getByProductId)
+    .patch('/:id',reviewController.updateById)
+    .delete("/:id",reviewController.deleteById)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/User.js ====================
+const express=require("express")
+const userController=require("../controllers/User")
+const router=express.Router()
+
+router
+    .get("/:id",userController.getById)
+    .patch("/:id",userController.updateById)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/routes/Wishlist.js ====================
+const express=require("express")
+const wishlistController=require("../controllers/Wishlist")
+const router=express.Router()
+
+
+router
+    .post("/",wishlistController.create)
+    .get("/user/:id",wishlistController.getByUserId)
+    .patch("/:id",wishlistController.updateById)
+    .delete("/:id",wishlistController.deleteById)
+
+module.exports=router
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Address.js ====================
+const Address = require("../models/Address");
+
+const addresses = [
+  {
+    _id: "65c26398e1e1a2106ac8fbd5",
+    user: "65b8e564ea5ce114184ccb96",
+    street: "main 11th",
+    city: "Indrapuram",
+    state: "Uttar Pradesh",
+    phoneNumber: "9452571272",
+    postalCode: "201012",
+    country: "India",
+    type: "Home",
+    __v: 0,
+  },
+  {
+    _id: "65c26412e1e1a2106ac8fbd8",
+    user: "65b8e564ea5ce114184ccb96",
+    street: "main 18th",
+    city: "Noida",
+    state: "Uttar Pradesh",
+    phoneNumber: "9846286159",
+    postalCode: "301273",
+    country: "India",
+    type: "Buisness",
+    __v: 0,
+  },
+];
+
+exports.seedAddress = async () => {
+  try {
+    await Address.insertMany(addresses);
+    console.log("Address seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Brand.js ====================
+const Brand = require("../models/Brand");
+
+const brands = [
+  { _id: "65a7e20102e12c44f59943da", name: "Apple" },
+  { _id: "65a7e20102e12c44f59943db", name: "Samsung" },
+  { _id: "65a7e20102e12c44f59943dc", name: "OPPO" },
+  { _id: "65a7e20102e12c44f59943dd", name: "Huawei" },
+  { _id: "65a7e20102e12c44f59943de", name: "Microsoft Surface" },
+  { _id: "65a7e20102e12c44f59943df", name: "Infinix" },
+  { _id: "65a7e20102e12c44f59943e0", name: "HP Pavilion" },
+  { _id: "65a7e20102e12c44f59943e1", name: "Impression of Acqua Di Gio" },
+  { _id: "65a7e20102e12c44f59943e2", name: "Royal_Mirage" },
+  { _id: "65a7e20102e12c44f59943e3", name: "Fog Scent Xpressio" },
+  { _id: "65a7e20102e12c44f59943e4", name: "Al Munakh" },
+  { _id: "65a7e20102e12c44f59943e5", name: "Lord - Al-Rehab" },
+  { _id: "65a7e20102e12c44f59943e6", name: "L'Oreal Paris" },
+  { _id: "65a7e20102e12c44f59943e7", name: "Hemani Tea" },
+  { _id: "65a7e20102e12c44f59943e8", name: "Dermive" },
+  { _id: "65a7e20102e12c44f59943e9", name: "ROREC White Rice" },
+  { _id: "65a7e20102e12c44f59943ea", name: "Fair & Clear" },
+  { _id: "65a7e20102e12c44f59943eb", name: "Saaf & Khaas" },
+  { _id: "65a7e20102e12c44f59943ec", name: "Bake Parlor Big" },
+  { _id: "65a7e20102e12c44f59943ed", name: "Baking Food Items" },
+  { _id: "65a7e20102e12c44f59943ee", name: "fauji" },
+  { _id: "65a7e20102e12c44f59943ef", name: "Dry Rose" },
+  { _id: "65a7e20102e12c44f59943f0", name: "Boho Decor" },
+  { _id: "65a7e20102e12c44f59943f1", name: "Flying Wooden" },
+  { _id: "65a7e20102e12c44f59943f2", name: "LED Lights" },
+  { _id: "65a7e20102e12c44f59943f3", name: "luxury palace" },
+  { _id: "65a7e20102e12c44f59943f4", name: "Golden" },
+  { _id: "65a7e20102e12c44f59943f5", name: "Furniture Bed Set" },
+  { _id: "65a7e20102e12c44f59943f6", name: "Ratttan Outdoor" },
+  { _id: "65a7e20102e12c44f59943f7", name: "Kitchen Shelf" },
+  { _id: "65a7e20102e12c44f59943f8", name: "Multi Purpose" },
+  { _id: "65a7e20102e12c44f59943f9", name: "AmnaMart" },
+  { _id: "65a7e20102e12c44f59943fa", name: "Professional Wear" },
+  { _id: "65a7e20102e12c44f59943fb", name: "Soft Cotton" },
+  { _id: "65a7e20102e12c44f59943fc", name: "Top Sweater" },
+  { _id: "65a7e20102e12c44f59943fd", name: "RED MICKY MOUSE.." },
+  { _id: "65a7e20102e12c44f59943fe", name: "Digital Printed" },
+  { _id: "65a7e20102e12c44f59943ff", name: "Ghazi Fabric" },
+  { _id: "65a7e20102e12c44f5994400", name: "IELGY" },
+  { _id: "65a7e20102e12c44f5994401", name: "IELGY fashion" },
+  { _id: "65a7e20102e12c44f5994402", name: "Synthetic Leather" },
+  { _id: "65a7e20102e12c44f5994403", name: "Sandals Flip Flops" },
+  { _id: "65a7e20102e12c44f5994404", name: "Maasai Sandals" },
+  { _id: "65a7e20102e12c44f5994405", name: "Arrivals Genuine" },
+  { _id: "65a7e20102e12c44f5994406", name: "Vintage Apparel" },
+  { _id: "65a7e20102e12c44f5994407", name: "FREE FIRE" },
+  { _id: "65a7e20102e12c44f5994408", name: "The Warehouse" },
+  { _id: "65a7e20102e12c44f5994409", name: "Sneakers" },
+  { _id: "65a7e20102e12c44f599440a", name: "Rubber" },
+  { _id: "65a7e20102e12c44f599440b", name: "Naviforce" },
+  { _id: "65a7e20102e12c44f599440c", name: "SKMEI 9117" },
+  { _id: "65a7e20102e12c44f599440d", name: "Strap Skeleton" },
+  { _id: "65a7e20102e12c44f599440e", name: "Stainless" },
+  { _id: "65a7e20102e12c44f599440f", name: "Eastern Watches" },
+  { _id: "65a7e20102e12c44f5994410", name: "Luxury Digital" },
+  { _id: "65a7e20102e12c44f5994411", name: "Watch Pearls" },
+  { _id: "65a7e20102e12c44f5994412", name: "Bracelet" },
+  { _id: "65a7e20102e12c44f5994413", name: "LouisWill" },
+  { _id: "65a7e20102e12c44f5994414", name: "Copenhagen Luxe" },
+  { _id: "65a7e20102e12c44f5994415", name: "Steal Frame" },
+  { _id: "65a7e20102e12c44f5994416", name: "Darojay" },
+  { _id: "65a7e20102e12c44f5994417", name: "Fashion Jewellery" },
+  { _id: "65a7e20102e12c44f5994418", name: "Cuff Butterfly" },
+  { _id: "65a7e20102e12c44f5994419", name: "Designer Sun Glasses" },
+  { _id: "65a7e20102e12c44f599441a", name: "mastar watch" },
+  { _id: "65a7e20102e12c44f599441b", name: "Car Aux" },
+  { _id: "65a7e20102e12c44f599441c", name: "W1209 DC12V" },
+  { _id: "65a7e20102e12c44f599441d", name: "TC Reusable" },
+  { _id: "65a7e20102e12c44f599441e", name: "Neon LED Light" },
+  { _id: "65a7e20102e12c44f599441f", name: "METRO 70cc Motorcycle - MR70" },
+  { _id: "65a7e20102e12c44f5994420", name: "BRAVE BULL" },
+  { _id: "65a7e20102e12c44f5994421", name: "shock absorber" },
+  { _id: "65a7e20102e12c44f5994422", name: "JIEPOLLY" },
+  { _id: "65a7e20102e12c44f5994423", name: "Xiangle" },
+  { _id: "65a7e20102e12c44f5994424", name: "lightingbrilliance" },
+  { _id: "65a7e20102e12c44f5994425", name: "Ifei Home" },
+  { _id: "65a7e20102e12c44f5994426", name: "DADAWU" },
+  { _id: "65a7e20102e12c44f5994427", name: "YIOSI" },
+];
+
+exports.seedBrand = async () => {
+  try {
+    await Brand.insertMany(brands);
+    console.log('Brand seeded successfully');
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Cart.js ====================
+const Cart = require("../models/Cart");
+
+const cartItems = [
+  {
+    _id: "65c357fe2f21c40d167c276b",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994453",
+    quantity: 1,
+  },
+  {
+    _id: "65c3581d2f21c40d167c278f",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599445d",
+    quantity: 4,
+  },
+  {
+    _id: "65c3584f2f21c40d167c27f5",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944a1",
+    quantity: 2,
+  },
+];
+
+exports.seedCart = async () => {
+  try {
+    await Cart.insertMany(cartItems);
+    console.log("Cart seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Category.js ====================
+const Category = require("../models/Category");
+
+const categories = [
+  { _id: "65a7e24602e12c44f599442c", name: "smartphones" },
+  { _id: "65a7e24602e12c44f599442d", name: "laptops" },
+  { _id: "65a7e24602e12c44f599442e", name: "fragrances" },
+  { _id: "65a7e24602e12c44f599442f", name: "skincare" },
+  { _id: "65a7e24602e12c44f5994430", name: "groceries" },
+  { _id: "65a7e24602e12c44f5994431", name: "home-decoration" },
+  { _id: "65a7e24602e12c44f5994432", name: "furniture" },
+  { _id: "65a7e24602e12c44f5994433", name: "tops" },
+  { _id: "65a7e24602e12c44f5994434", name: "womens-dresses" },
+  { _id: "65a7e24602e12c44f5994435", name: "womens-shoes" },
+  { _id: "65a7e24602e12c44f5994436", name: "mens-shirts" },
+  { _id: "65a7e24602e12c44f5994437", name: "mens-shoes" },
+  { _id: "65a7e24602e12c44f5994438", name: "mens-watches" },
+  { _id: "65a7e24602e12c44f5994439", name: "womens-watches" },
+  { _id: "65a7e24602e12c44f599443a", name: "womens-bags" },
+  { _id: "65a7e24602e12c44f599443b", name: "womens-jewellery" },
+  { _id: "65a7e24602e12c44f599443c", name: "sunglasses" },
+  { _id: "65a7e24602e12c44f599443d", name: "automotive" },
+  { _id: "65a7e24602e12c44f599443e", name: "motorcycle" },
+  { _id: "65a7e24602e12c44f599443f", name: "lighting" },
+];
+
+exports.seedCategory = async () => {
+  try {
+    await Category.insertMany(categories);
+    console.log("Category seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Order.js ====================
+const Order = require("../models/Order");
+const fs = require("fs");
+
+const orders = [
+  {
+    _id: "65c2658db53f820728d0745a",
+    user: "65b8e564ea5ce114184ccb96",
+    item: [
+      {
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f5994454",
+          title: "Samsung Galaxy Book",
+          description:
+            "Samsung Galaxy Book S (2020) Laptop With Intel Lakefield Chip, 8GB of RAM Launched",
+          price: 1499,
+          discountPercentage: 4.15,
+          stockQuantity: 50,
+          brand: { _id: "65a7e20102e12c44f59943db", name: "Samsung" },
+          category: "65a7e24602e12c44f599442d",
+          thumbnail: "https://cdn.dummyjson.com/product-images/7/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/7/1.jpg",
+            "https://cdn.dummyjson.com/product-images/7/2.jpg",
+            "https://cdn.dummyjson.com/product-images/7/3.jpg",
+            "https://cdn.dummyjson.com/product-images/7/thumbnail.jpg",
+          ],
+          isDeleted: false,
+          updatedAt: "2024-02-05T09:34:30.107Z",
+        },
+        quantity: 1,
+        _id: "65c26581b53f820728d07456",
+      },
+    ],
+    address: [
+      {
+        _id: "65c26398e1e1a2106ac8fbd5",
+        user: "65b8e564ea5ce114184ccb96",
+        street: "main 11th",
+        city: "Indrapuram",
+        state: "Uttar Pradesh",
+        phoneNumber: "9452571272",
+        postalCode: "201012",
+        country: "India",
+        type: "Home",
+        __v: 0,
+      },
+    ],
+    status: "Pending",
+    paymentMode: "CARD",
+    total: 1509.55,
+    createdAt: "2024-02-07T10:36:15.151Z",
+  },
+  {
+    _id: "65c265c6b53f820728d0749c",
+    user: "65b8e564ea5ce114184ccb96",
+    item: [
+      {
+        _id: "65c265a2b53f820728d07474",
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f599445d",
+          title: "Hyaluronic Acid Serum",
+          description:
+            "L'OrÃ©al Paris introduces Hyaluron Expert Replumping Serum formulated with 1.5% Hyaluronic Acid",
+          price: 19,
+          discountPercentage: 13.31,
+          stockQuantity: 110,
+          brand: {
+            _id: "65a7e20102e12c44f59943e6",
+            name: "L'Oreal Paris",
+          },
+          category: "65a7e24602e12c44f599442f",
+          thumbnail:
+            "https://cdn.dummyjson.com/product-images/16/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/16/1.png",
+            "https://cdn.dummyjson.com/product-images/16/2.webp",
+            "https://cdn.dummyjson.com/product-images/16/3.jpg",
+            "https://cdn.dummyjson.com/product-images/16/4.jpg",
+            "https://cdn.dummyjson.com/product-images/16/thumbnail.jpg",
+          ],
+          isDeleted: false,
+        },
+        quantity: 2,
+      },
+      {
+        _id: "65c265b9b53f820728d0748f",
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f599445e",
+          title: "Tree Oil 30ml",
+          description:
+            "Tea tree oil contains a number of compounds, including terpinen-4-ol, that have been shown to kill certain bacteria,",
+          price: 12,
+          discountPercentage: 4.09,
+          stockQuantity: 78,
+          brand: { _id: "65a7e20102e12c44f59943e7", name: "Hemani Tea" },
+          category: "65a7e24602e12c44f599442f",
+          thumbnail:
+            "https://cdn.dummyjson.com/product-images/17/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/17/1.jpg",
+            "https://cdn.dummyjson.com/product-images/17/2.jpg",
+            "https://cdn.dummyjson.com/product-images/17/3.jpg",
+            "https://cdn.dummyjson.com/product-images/17/thumbnail.jpg",
+          ],
+          isDeleted: false,
+        },
+        quantity: 3,
+      },
+    ],
+    address: [
+      {
+        _id: "65c26398e1e1a2106ac8fbd5",
+        user: "65b8e564ea5ce114184ccb96",
+        street: "main 11th",
+        city: "Indrapuram",
+        state: "Uttar Pradesh",
+        phoneNumber: "9452571272",
+        postalCode: "201012",
+        country: "India",
+        type: "Home",
+        __v: 0,
+      },
+    ],
+    status: "Pending",
+    paymentMode: "COD",
+    total: 84.55,
+    createdAt: "2024-02-07T10:36:15.151Z",
+  },
+  {
+    _id: "65c265feb53f820728d074b4",
+    user: "65b8e564ea5ce114184ccb96",
+    item: [
+      {
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f59944b0",
+          title: "American Vintage Wood Pendant Light",
+          description:
+            "American Vintage Wood Pendant Light Farmhouse Antique Hanging Lamp Lampara Colgante",
+          price: 46,
+          discountPercentage: 8.84,
+          stockQuantity: 138,
+          brand: { _id: "65a7e20102e12c44f5994425", name: "Ifei Home" },
+          category: "65a7e24602e12c44f599443f",
+          thumbnail:
+            "https://cdn.dummyjson.com/product-images/99/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/99/1.jpg",
+            "https://cdn.dummyjson.com/product-images/99/2.jpg",
+            "https://cdn.dummyjson.com/product-images/99/3.jpg",
+            "https://cdn.dummyjson.com/product-images/99/4.jpg",
+            "https://cdn.dummyjson.com/product-images/99/thumbnail.jpg",
+          ],
+          isDeleted: false,
+        },
+        quantity: 1,
+        _id: "65c265edb53f820728d074b0",
+      },
+    ],
+    address: [
+      {
+        _id: "65c26398e1e1a2106ac8fbd5",
+        user: "65b8e564ea5ce114184ccb96",
+        street: "main 11th",
+        city: "Indrapuram",
+        state: "Uttar Pradesh",
+        phoneNumber: "9452571272",
+        postalCode: "201012",
+        country: "India",
+        type: "Home",
+        __v: 0,
+      },
+    ],
+    status: "Pending",
+    paymentMode: "COD",
+    total: 56.55,
+    createdAt: "2024-02-07T10:36:15.151Z",
+  },
+  {
+    _id: "65c2667db53f820728d07579",
+    user: "65b8e564ea5ce114184ccb96",
+    item: [
+      {
+        _id: "65c26673b53f820728d0756f",
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f599446d",
+          title: "Sofa for Coffe Cafe",
+          description:
+            "Ratttan Outdoor furniture Set Waterproof  Rattan Sofa for Coffe Cafe",
+          price: 50,
+          discountPercentage: 15.59,
+          stockQuantity: 30,
+          brand: {
+            _id: "65a7e20102e12c44f59943f6",
+            name: "Ratttan Outdoor",
+          },
+          category: "65a7e24602e12c44f5994432",
+          thumbnail:
+            "https://cdn.dummyjson.com/product-images/32/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/32/1.jpg",
+            "https://cdn.dummyjson.com/product-images/32/2.jpg",
+            "https://cdn.dummyjson.com/product-images/32/3.jpg",
+            "https://cdn.dummyjson.com/product-images/32/thumbnail.jpg",
+          ],
+          isDeleted: false,
+        },
+        quantity: 1,
+      },
+    ],
+    address: [
+      {
+        _id: "65c26412e1e1a2106ac8fbd8",
+        user: "65b8e564ea5ce114184ccb96",
+        street: "main 18th",
+        city: "Noida",
+        state: "Uttar Pradesh",
+        phoneNumber: "9846286159",
+        postalCode: "301273",
+        country: "India",
+        type: "Buisness",
+        __v: 0,
+      },
+    ],
+    status: "Pending",
+    paymentMode: "CARD",
+    total: 60.55,
+    createdAt: "2024-02-07T10:36:15.151Z",
+  },
+  {
+    _id: "65c266eab53f820728d0763f",
+    user: "65b8e564ea5ce114184ccb96",
+    item: [
+      {
+        _id: "65c266dab53f820728d07632",
+        user: "65b8e564ea5ce114184ccb96",
+        product: {
+          _id: "65a7e45902e12c44f59944ae",
+          title: "Metal Ceramic Flower",
+          description:
+            "Metal Ceramic Flower Chandelier Home Lighting American Vintage Hanging Lighting Pendant Lamp",
+          price: 35,
+          discountPercentage: 10.94,
+          stockQuantity: 146,
+          brand: { _id: "65a7e20102e12c44f5994425", name: "Ifei Home" },
+          category: "65a7e24602e12c44f599443f",
+          thumbnail:
+            "https://cdn.dummyjson.com/product-images/97/thumbnail.jpg",
+          images: [
+            "https://cdn.dummyjson.com/product-images/97/1.jpg",
+            "https://cdn.dummyjson.com/product-images/97/2.jpg",
+            "https://cdn.dummyjson.com/product-images/97/3.jpg",
+            "https://cdn.dummyjson.com/product-images/97/4.webp",
+            "https://cdn.dummyjson.com/product-images/97/thumbnail.jpg",
+          ],
+          isDeleted: false,
+        },
+        quantity: 4,
+      },
+    ],
+    address: [
+      {
+        _id: "65c26398e1e1a2106ac8fbd5",
+        user: "65b8e564ea5ce114184ccb96",
+        street: "main 11th",
+        city: "Indrapuram",
+        state: "Uttar Pradesh",
+        phoneNumber: "9452571272",
+        postalCode: "201012",
+        country: "India",
+        type: "Home",
+        __v: 0,
+      },
+    ],
+    status: "Pending",
+    paymentMode: "COD",
+    total: 150.55,
+    createdAt: "2024-02-07T10:36:15.151Z",
+  },
+];
+
+exports.seedOrder = async () => {
+  try {
+    await Order.insertMany(orders);
+    console.log("Order seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Product.js ====================
+const Product = require("../models/Product");
+
+const products = [
+  {
+    _id: "65a7e45902e12c44f599444e",
+    title: "iPhone 9",
+    description: "An apple mobile which is nothing like apple",
+    price: 549,
+    discountPercentage: 12.96,
+    stockQuantity: 14,
+    brand: "65a7e20102e12c44f59943da",
+    category: "65a7e24602e12c44f599442c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/1/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/1/1.jpg",
+      "https://cdn.dummyjson.com/product-images/1/2.jpg",
+      "https://cdn.dummyjson.com/product-images/1/3.jpg",
+      "https://cdn.dummyjson.com/product-images/1/4.jpg",
+      "https://cdn.dummyjson.com/product-images/1/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599444f",
+    title: "Fog Scent Xpressio Perfume custom",
+    description:
+      "Product details of Best Fog Scent Xpressio Perfume 100ml For Men cool long lasting perfumes for Men",
+    price: 13,
+    discountPercentage: 8.14,
+    stockQuantity: 21,
+    brand: "65a7e20102e12c44f59943e3",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/13/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/13/1.jpg",
+      "https://cdn.dummyjson.com/product-images/13/2.png",
+      "https://cdn.dummyjson.com/product-images/13/3.jpg",
+      "https://cdn.dummyjson.com/product-images/13/4.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+    stockQuantityQuantity: 5,
+  },
+  {
+    _id: "65a7e45902e12c44f5994450",
+    title: "Samsung Universe 9",
+    description:
+      "Samsung's new variant which goes beyond Galaxy to the Universe",
+    price: 1249,
+    discountPercentage: 15.46,
+    stockQuantity: 36,
+    brand: "65a7e20102e12c44f59943db",
+    category: "65a7e24602e12c44f599442c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/3/thumbnail.jpg",
+    images: ["https://cdn.dummyjson.com/product-images/3/1.jpg"],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994451",
+    title: "OPPOF19",
+    description: "OPPO F19 is officially announced on April 2021.",
+    price: 280,
+    discountPercentage: 17.91,
+    stockQuantity: 123,
+    brand: "65a7e20102e12c44f59943dc",
+    category: "65a7e24602e12c44f599442c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/4/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/4/1.jpg",
+      "https://cdn.dummyjson.com/product-images/4/2.jpg",
+      "https://cdn.dummyjson.com/product-images/4/3.jpg",
+      "https://cdn.dummyjson.com/product-images/4/4.jpg",
+      "https://cdn.dummyjson.com/product-images/4/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994452",
+    title: "Huawei P30",
+    description:
+      "Huawei’s re-badged P30 Pro New Edition was officially unveiled yesterday in Germany and now the device has made its way to the UK.",
+    price: 499,
+    discountPercentage: 10.58,
+    stockQuantity: 32,
+    brand: "65a7e20102e12c44f59943dd",
+    category: "65a7e24602e12c44f599442c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/5/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/5/1.jpg",
+      "https://cdn.dummyjson.com/product-images/5/2.jpg",
+      "https://cdn.dummyjson.com/product-images/5/3.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994453",
+    title: "MacBook Pro",
+    description:
+      "MacBook Pro 2021 with mini-LED display may launch between September, November",
+    price: 1749,
+    discountPercentage: 11.02,
+    stockQuantity: 83,
+    brand: "65a7e20102e12c44f59943da",
+    category: "65a7e24602e12c44f599442d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/6/thumbnail.png",
+    images: [
+      "https://cdn.dummyjson.com/product-images/6/1.png",
+      "https://cdn.dummyjson.com/product-images/6/2.jpg",
+      "https://cdn.dummyjson.com/product-images/6/3.png",
+      "https://cdn.dummyjson.com/product-images/6/4.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994454",
+    title: "Samsung Galaxy Book",
+    description:
+      "Samsung Galaxy Book S (2020) Laptop With Intel Lakefield Chip, 8GB of RAM Launched",
+    price: 1499,
+    discountPercentage: 4.15,
+    stockQuantity: 50,
+    brand: "65a7e20102e12c44f59943db",
+    category: "65a7e24602e12c44f599442d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/7/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/7/1.jpg",
+      "https://cdn.dummyjson.com/product-images/7/2.jpg",
+      "https://cdn.dummyjson.com/product-images/7/3.jpg",
+      "https://cdn.dummyjson.com/product-images/7/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994455",
+    title: "Microsoft Surface Laptop 4",
+    description:
+      "Style and speed. Stand out on HD video calls backed by Studio Mics. Capture ideas on the vibrant touchscreen.",
+    price: 1499,
+    discountPercentage: 10.23,
+    stockQuantity: 68,
+    brand: "65a7e20102e12c44f59943de",
+    category: "65a7e24602e12c44f599442d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/8/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/8/1.jpg",
+      "https://cdn.dummyjson.com/product-images/8/2.jpg",
+      "https://cdn.dummyjson.com/product-images/8/3.jpg",
+      "https://cdn.dummyjson.com/product-images/8/4.jpg",
+      "https://cdn.dummyjson.com/product-images/8/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994456",
+    title: "Infinix INBOOK",
+    description:
+      "Infinix Inbook X1 Ci3 10th 8GB 256GB 14 Win10 Grey – 1 Year Warranty",
+    price: 1099,
+    discountPercentage: 11.83,
+    stockQuantity: 96,
+    brand: "65a7e20102e12c44f59943df",
+    category: "65a7e24602e12c44f599442d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/9/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/9/1.jpg",
+      "https://cdn.dummyjson.com/product-images/9/2.png",
+      "https://cdn.dummyjson.com/product-images/9/3.png",
+      "https://cdn.dummyjson.com/product-images/9/4.jpg",
+      "https://cdn.dummyjson.com/product-images/9/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994457",
+    title: "HP Pavilion 15-DK1056WM",
+    description:
+      "HP Pavilion 15-DK1056WM Gaming Laptop 10th Gen Core i5, 8GB, 256GB SSD, GTX 1650 4GB, Windows 10",
+    price: 1099,
+    discountPercentage: 6.18,
+    stockQuantity: 89,
+    brand: "65a7e20102e12c44f59943e0",
+    category: "65a7e24602e12c44f599442d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/10/thumbnail.jpeg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/10/1.jpg",
+      "https://cdn.dummyjson.com/product-images/10/2.jpg",
+      "https://cdn.dummyjson.com/product-images/10/3.jpg",
+      "https://cdn.dummyjson.com/product-images/10/thumbnail.jpeg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994458",
+    title: "perfume Oil",
+    description:
+      "Mega Discount, Impression of Acqua Di Gio by GiorgioArmani concentrated attar perfume Oil",
+    price: 13,
+    discountPercentage: 8.4,
+    stockQuantity: 65,
+    brand: "65a7e20102e12c44f59943e1",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/11/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/11/1.jpg",
+      "https://cdn.dummyjson.com/product-images/11/2.jpg",
+      "https://cdn.dummyjson.com/product-images/11/3.jpg",
+      "https://cdn.dummyjson.com/product-images/11/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994459",
+    title: "Brown Perfume",
+    description: "Royal_Mirage Sport Brown Perfume for Men & Women - 120ml",
+    price: 40,
+    discountPercentage: 15.66,
+    stockQuantity: 52,
+    brand: "65a7e20102e12c44f59943e2",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/12/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/12/1.jpg",
+      "https://cdn.dummyjson.com/product-images/12/2.jpg",
+      "https://cdn.dummyjson.com/product-images/12/3.png",
+      "https://cdn.dummyjson.com/product-images/12/4.jpg",
+      "https://cdn.dummyjson.com/product-images/12/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445a",
+    title: "Fog Scent Xpressio Perfume",
+    description:
+      "Product details of Best Fog Scent Xpressio Perfume 100ml For Men cool long lasting perfumes for Men",
+    price: 13,
+    discountPercentage: 8.14,
+    stockQuantity: 61,
+    brand: "65a7e20102e12c44f59943e3",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/13/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/13/1.jpg",
+      "https://cdn.dummyjson.com/product-images/13/2.png",
+      "https://cdn.dummyjson.com/product-images/13/3.jpg",
+      "https://cdn.dummyjson.com/product-images/13/4.jpg",
+      "https://cdn.dummyjson.com/product-images/13/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445b",
+    title: "Non-Alcoholic Concentrated Perfume Oil",
+    description:
+      "Original Al Munakh® by Mahal Al Musk | Our Impression of Climate | 6ml Non-Alcoholic Concentrated Perfume Oil",
+    price: 120,
+    discountPercentage: 15.6,
+    stockQuantity: 114,
+    brand: "65a7e20102e12c44f59943e4",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/14/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/14/1.jpg",
+      "https://cdn.dummyjson.com/product-images/14/2.jpg",
+      "https://cdn.dummyjson.com/product-images/14/3.jpg",
+      "https://cdn.dummyjson.com/product-images/14/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445c",
+    title: "Eau De Perfume Spray",
+    description:
+      "Genuine  Al-Rehab spray perfume from UAE/Saudi Arabia/Yemen High Quality",
+    price: 30,
+    discountPercentage: 10.99,
+    stockQuantity: 105,
+    brand: "65a7e20102e12c44f59943e5",
+    category: "65a7e24602e12c44f599442e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/15/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/15/1.jpg",
+      "https://cdn.dummyjson.com/product-images/15/2.jpg",
+      "https://cdn.dummyjson.com/product-images/15/3.jpg",
+      "https://cdn.dummyjson.com/product-images/15/4.jpg",
+      "https://cdn.dummyjson.com/product-images/15/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445d",
+    title: "Hyaluronic Acid Serum",
+    description:
+      "L'OrÃ©al Paris introduces Hyaluron Expert Replumping Serum formulated with 1.5% Hyaluronic Acid",
+    price: 19,
+    discountPercentage: 13.31,
+    stockQuantity: 110,
+    brand: "65a7e20102e12c44f59943e6",
+    category: "65a7e24602e12c44f599442f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/16/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/16/1.png",
+      "https://cdn.dummyjson.com/product-images/16/2.webp",
+      "https://cdn.dummyjson.com/product-images/16/3.jpg",
+      "https://cdn.dummyjson.com/product-images/16/4.jpg",
+      "https://cdn.dummyjson.com/product-images/16/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445e",
+    title: "Tree Oil 30ml",
+    description:
+      "Tea tree oil contains a number of compounds, including terpinen-4-ol, that have been shown to kill certain bacteria,",
+    price: 12,
+    discountPercentage: 4.09,
+    stockQuantity: 78,
+    brand: "65a7e20102e12c44f59943e7",
+    category: "65a7e24602e12c44f599442f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/17/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/17/1.jpg",
+      "https://cdn.dummyjson.com/product-images/17/2.jpg",
+      "https://cdn.dummyjson.com/product-images/17/3.jpg",
+      "https://cdn.dummyjson.com/product-images/17/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599445f",
+    title: "Oil Free Moisturizer 100ml",
+    description:
+      "Dermive Oil Free Moisturizer with SPF 20 is specifically formulated with ceramides, hyaluronic acid & sunscreen.",
+    price: 40,
+    discountPercentage: 13.1,
+    stockQuantity: 88,
+    brand: "65a7e20102e12c44f59943e8",
+    category: "65a7e24602e12c44f599442f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/18/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/18/1.jpg",
+      "https://cdn.dummyjson.com/product-images/18/2.jpg",
+      "https://cdn.dummyjson.com/product-images/18/3.jpg",
+      "https://cdn.dummyjson.com/product-images/18/4.jpg",
+      "https://cdn.dummyjson.com/product-images/18/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994460",
+    title: "Skin Beauty Serum.",
+    description:
+      "Product name: rorec collagen hyaluronic acid white face serum riceNet weight: 15 m",
+    price: 46,
+    discountPercentage: 10.68,
+    stockQuantity: 54,
+    brand: "65a7e20102e12c44f59943e9",
+    category: "65a7e24602e12c44f599442f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/19/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/19/1.jpg",
+      "https://cdn.dummyjson.com/product-images/19/2.jpg",
+      "https://cdn.dummyjson.com/product-images/19/3.png",
+      "https://cdn.dummyjson.com/product-images/19/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994461",
+    title: "Freckle Treatment Cream- 15gm",
+    description:
+      "Fair & Clear is Pakistan's only pure Freckle cream which helpsfade Freckles, Darkspots and pigments. Mercury level is 0%, so there are no side effects.",
+    price: 70,
+    discountPercentage: 16.99,
+    stockQuantity: 140,
+    brand: "65a7e20102e12c44f59943ea",
+    category: "65a7e24602e12c44f599442f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/20/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/20/1.jpg",
+      "https://cdn.dummyjson.com/product-images/20/2.jpg",
+      "https://cdn.dummyjson.com/product-images/20/3.jpg",
+      "https://cdn.dummyjson.com/product-images/20/4.jpg",
+      "https://cdn.dummyjson.com/product-images/20/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994462",
+    title: "- Daal Masoor 500 grams",
+    description: "Fine quality Branded Product Keep in a cool and dry place",
+    price: 20,
+    discountPercentage: 4.81,
+    stockQuantity: 133,
+    brand: "65a7e20102e12c44f59943eb",
+    category: "65a7e24602e12c44f5994430",
+    thumbnail: "https://cdn.dummyjson.com/product-images/21/thumbnail.png",
+    images: [
+      "https://cdn.dummyjson.com/product-images/21/1.png",
+      "https://cdn.dummyjson.com/product-images/21/2.jpg",
+      "https://cdn.dummyjson.com/product-images/21/3.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994463",
+    title: "Elbow Macaroni - 400 gm",
+    description: "Product details of Bake Parlor Big Elbow Macaroni - 400 gm",
+    price: 14,
+    discountPercentage: 15.58,
+    stockQuantity: 146,
+    brand: "65a7e20102e12c44f59943ec",
+    category: "65a7e24602e12c44f5994430",
+    thumbnail: "https://cdn.dummyjson.com/product-images/22/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/22/1.jpg",
+      "https://cdn.dummyjson.com/product-images/22/2.jpg",
+      "https://cdn.dummyjson.com/product-images/22/3.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994464",
+    title: "Orange Essence Food Flavou",
+    description:
+      "Specifications of Orange Essence Food Flavour For Cakes and Baking Food Item",
+    price: 14,
+    discountPercentage: 8.04,
+    stockQuantity: 26,
+    brand: "65a7e20102e12c44f59943ed",
+    category: "65a7e24602e12c44f5994430",
+    thumbnail: "https://cdn.dummyjson.com/product-images/23/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/23/1.jpg",
+      "https://cdn.dummyjson.com/product-images/23/2.jpg",
+      "https://cdn.dummyjson.com/product-images/23/3.jpg",
+      "https://cdn.dummyjson.com/product-images/23/4.jpg",
+      "https://cdn.dummyjson.com/product-images/23/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994465",
+    title: "cereals muesli fruit nuts",
+    description:
+      "original fauji cereal muesli 250gm box pack original fauji cereals muesli fruit nuts flakes breakfast cereal break fast faujicereals cerels cerel foji fouji",
+    price: 46,
+    discountPercentage: 16.8,
+    stockQuantity: 113,
+    brand: "65a7e20102e12c44f59943ee",
+    category: "65a7e24602e12c44f5994430",
+    thumbnail: "https://cdn.dummyjson.com/product-images/24/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/24/1.jpg",
+      "https://cdn.dummyjson.com/product-images/24/2.jpg",
+      "https://cdn.dummyjson.com/product-images/24/3.jpg",
+      "https://cdn.dummyjson.com/product-images/24/4.jpg",
+      "https://cdn.dummyjson.com/product-images/24/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994466",
+    title: "Gulab Powder 50 Gram",
+    description: "Dry Rose Flower Powder Gulab Powder 50 Gram • Treats Wounds",
+    price: 70,
+    discountPercentage: 13.58,
+    stockQuantity: 47,
+    brand: "65a7e20102e12c44f59943ef",
+    category: "65a7e24602e12c44f5994430",
+    thumbnail: "https://cdn.dummyjson.com/product-images/25/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/25/1.png",
+      "https://cdn.dummyjson.com/product-images/25/2.jpg",
+      "https://cdn.dummyjson.com/product-images/25/3.png",
+      "https://cdn.dummyjson.com/product-images/25/4.jpg",
+      "https://cdn.dummyjson.com/product-images/25/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994467",
+    title: "Plant Hanger For Home",
+    description:
+      "Boho Decor Plant Hanger For Home Wall Decoration Macrame Wall Hanging Shelf",
+    price: 41,
+    discountPercentage: 17.86,
+    stockQuantity: 131,
+    brand: "65a7e20102e12c44f59943f0",
+    category: "65a7e24602e12c44f5994431",
+    thumbnail: "https://cdn.dummyjson.com/product-images/26/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/26/1.jpg",
+      "https://cdn.dummyjson.com/product-images/26/2.jpg",
+      "https://cdn.dummyjson.com/product-images/26/3.jpg",
+      "https://cdn.dummyjson.com/product-images/26/4.jpg",
+      "https://cdn.dummyjson.com/product-images/26/5.jpg",
+      "https://cdn.dummyjson.com/product-images/26/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994468",
+    title: "Flying Wooden Bird",
+    description:
+      "Package Include 6 Birds with Adhesive Tape Shape: 3D Shaped Wooden Birds Material: Wooden MDF, Laminated 3.5mm",
+    price: 51,
+    discountPercentage: 15.58,
+    stockQuantity: 17,
+    brand: "65a7e20102e12c44f59943f1",
+    category: "65a7e24602e12c44f5994431",
+    thumbnail: "https://cdn.dummyjson.com/product-images/27/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/27/1.jpg",
+      "https://cdn.dummyjson.com/product-images/27/2.jpg",
+      "https://cdn.dummyjson.com/product-images/27/3.jpg",
+      "https://cdn.dummyjson.com/product-images/27/4.jpg",
+      "https://cdn.dummyjson.com/product-images/27/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994469",
+    title: "3D Embellishment Art Lamp",
+    description:
+      "3D led lamp sticker Wall sticker 3d wall art light on/off button  cell operated (included)",
+    price: 20,
+    discountPercentage: 16.49,
+    stockQuantity: 54,
+    brand: "65a7e20102e12c44f59943f2",
+    category: "65a7e24602e12c44f5994431",
+    thumbnail: "https://cdn.dummyjson.com/product-images/28/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/28/1.jpg",
+      "https://cdn.dummyjson.com/product-images/28/2.jpg",
+      "https://cdn.dummyjson.com/product-images/28/3.png",
+      "https://cdn.dummyjson.com/product-images/28/4.jpg",
+      "https://cdn.dummyjson.com/product-images/28/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446a",
+    title: "Handcraft Chinese style",
+    description:
+      "Handcraft Chinese style art luxury palace hotel villa mansion home decor ceramic vase with brass fruit plate",
+    price: 60,
+    discountPercentage: 15.34,
+    stockQuantity: 7,
+    brand: "65a7e20102e12c44f59943f3",
+    category: "65a7e24602e12c44f5994431",
+    thumbnail: "https://cdn.dummyjson.com/product-images/29/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/29/1.jpg",
+      "https://cdn.dummyjson.com/product-images/29/2.jpg",
+      "https://cdn.dummyjson.com/product-images/29/3.webp",
+      "https://cdn.dummyjson.com/product-images/29/4.webp",
+      "https://cdn.dummyjson.com/product-images/29/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446b",
+    title: "Key Holder",
+    description:
+      "Attractive DesignMetallic materialFour key hooksReliable & DurablePremium Quality",
+    price: 30,
+    discountPercentage: 2.92,
+    stockQuantity: 54,
+    brand: "65a7e20102e12c44f59943f4",
+    category: "65a7e24602e12c44f5994431",
+    thumbnail: "https://cdn.dummyjson.com/product-images/30/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/30/1.jpg",
+      "https://cdn.dummyjson.com/product-images/30/2.jpg",
+      "https://cdn.dummyjson.com/product-images/30/3.jpg",
+      "https://cdn.dummyjson.com/product-images/30/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446c",
+    title: "Mornadi Velvet Bed",
+    description:
+      "Mornadi Velvet Bed Base with Headboard Slats Support Classic Style Bedroom Furniture Bed Set",
+    price: 40,
+    discountPercentage: 17,
+    stockQuantity: 140,
+    brand: "65a7e20102e12c44f59943f5",
+    category: "65a7e24602e12c44f5994432",
+    thumbnail: "https://cdn.dummyjson.com/product-images/31/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/31/1.jpg",
+      "https://cdn.dummyjson.com/product-images/31/2.jpg",
+      "https://cdn.dummyjson.com/product-images/31/3.jpg",
+      "https://cdn.dummyjson.com/product-images/31/4.jpg",
+      "https://cdn.dummyjson.com/product-images/31/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446d",
+    title: "Sofa for Coffe Cafe",
+    description:
+      "Ratttan Outdoor furniture Set Waterproof  Rattan Sofa for Coffe Cafe",
+    price: 50,
+    discountPercentage: 15.59,
+    stockQuantity: 30,
+    brand: "65a7e20102e12c44f59943f6",
+    category: "65a7e24602e12c44f5994432",
+    thumbnail: "https://cdn.dummyjson.com/product-images/32/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/32/1.jpg",
+      "https://cdn.dummyjson.com/product-images/32/2.jpg",
+      "https://cdn.dummyjson.com/product-images/32/3.jpg",
+      "https://cdn.dummyjson.com/product-images/32/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446e",
+    title: "3 Tier Corner Shelves",
+    description:
+      "3 Tier Corner Shelves | 3 PCs Wall Mount Kitchen Shelf | Floating Bedroom Shelf",
+    price: 700,
+    discountPercentage: 17,
+    stockQuantity: 106,
+    brand: "65a7e20102e12c44f59943f7",
+    category: "65a7e24602e12c44f5994432",
+    thumbnail: "https://cdn.dummyjson.com/product-images/33/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/33/1.jpg",
+      "https://cdn.dummyjson.com/product-images/33/2.jpg",
+      "https://cdn.dummyjson.com/product-images/33/3.jpg",
+      "https://cdn.dummyjson.com/product-images/33/4.jpg",
+      "https://cdn.dummyjson.com/product-images/33/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599446f",
+    title: "Plastic Table",
+    description:
+      "V﻿ery good quality plastic table for multi purpose now in reasonable price",
+    price: 50,
+    discountPercentage: 4,
+    stockQuantity: 136,
+    brand: "65a7e20102e12c44f59943f8",
+    category: "65a7e24602e12c44f5994432",
+    thumbnail: "https://cdn.dummyjson.com/product-images/34/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/34/1.jpg",
+      "https://cdn.dummyjson.com/product-images/34/2.jpg",
+      "https://cdn.dummyjson.com/product-images/34/3.jpg",
+      "https://cdn.dummyjson.com/product-images/34/4.jpg",
+      "https://cdn.dummyjson.com/product-images/34/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994470",
+    title: "3 DOOR PORTABLE",
+    description:
+      "Material: Stainless Steel and Fabric  Item Size: 110 cm x 45 cm x 175 cm Package Contents: 1 Storage Wardrobe",
+    price: 41,
+    discountPercentage: 7.98,
+    stockQuantity: 68,
+    brand: "65a7e20102e12c44f59943f9",
+    category: "65a7e24602e12c44f5994432",
+    thumbnail: "https://cdn.dummyjson.com/product-images/35/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/35/1.jpg",
+      "https://cdn.dummyjson.com/product-images/35/2.jpg",
+      "https://cdn.dummyjson.com/product-images/35/3.jpg",
+      "https://cdn.dummyjson.com/product-images/35/4.jpg",
+      "https://cdn.dummyjson.com/product-images/35/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994471",
+    title: "Sleeve Shirt Womens",
+    description:
+      "Cotton Solid Color Professional Wear Sleeve Shirt Womens Work Blouses Wholesale Clothing Casual Plain Custom Top OEM Customized",
+    price: 90,
+    discountPercentage: 10.89,
+    stockQuantity: 39,
+    brand: "65a7e20102e12c44f59943fa",
+    category: "65a7e24602e12c44f5994433",
+    thumbnail: "https://cdn.dummyjson.com/product-images/36/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/36/1.jpg",
+      "https://cdn.dummyjson.com/product-images/36/2.webp",
+      "https://cdn.dummyjson.com/product-images/36/3.webp",
+      "https://cdn.dummyjson.com/product-images/36/4.jpg",
+      "https://cdn.dummyjson.com/product-images/36/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994472",
+    title: "ank Tops for Womens/Girls",
+    description:
+      "PACK OF 3 CAMISOLES ,VERY COMFORTABLE SOFT COTTON STUFF, COMFORTABLE IN ALL FOUR SEASONS",
+    price: 50,
+    discountPercentage: 12.05,
+    stockQuantity: 107,
+    brand: "65a7e20102e12c44f59943fb",
+    category: "65a7e24602e12c44f5994433",
+    thumbnail: "https://cdn.dummyjson.com/product-images/37/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/37/1.jpg",
+      "https://cdn.dummyjson.com/product-images/37/2.jpg",
+      "https://cdn.dummyjson.com/product-images/37/3.jpg",
+      "https://cdn.dummyjson.com/product-images/37/4.jpg",
+      "https://cdn.dummyjson.com/product-images/37/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994473",
+    title: "sublimation plain kids tank",
+    description: "sublimation plain kids tank tops wholesale",
+    price: 100,
+    discountPercentage: 11.12,
+    stockQuantity: 20,
+    brand: "65a7e20102e12c44f59943fb",
+    category: "65a7e24602e12c44f5994433",
+    thumbnail: "https://cdn.dummyjson.com/product-images/38/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/38/1.png",
+      "https://cdn.dummyjson.com/product-images/38/2.jpg",
+      "https://cdn.dummyjson.com/product-images/38/3.jpg",
+      "https://cdn.dummyjson.com/product-images/38/4.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994474",
+    title: "Women Sweaters Wool",
+    description:
+      "2021 Custom Winter Fall Zebra Knit Crop Top Women Sweaters Wool Mohair Cos Customize Crew Neck Women' S Crop Top Sweater",
+    price: 600,
+    discountPercentage: 17.2,
+    stockQuantity: 55,
+    brand: "65a7e20102e12c44f59943fc",
+    category: "65a7e24602e12c44f5994433",
+    thumbnail: "https://cdn.dummyjson.com/product-images/39/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/39/1.jpg",
+      "https://cdn.dummyjson.com/product-images/39/2.jpg",
+      "https://cdn.dummyjson.com/product-images/39/3.jpg",
+      "https://cdn.dummyjson.com/product-images/39/4.jpg",
+      "https://cdn.dummyjson.com/product-images/39/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994475",
+    title: "women winter clothes",
+    description:
+      "women winter clothes thick fleece hoodie top with sweat pantjogger women sweatsuit set joggers pants two piece pants set",
+    price: 57,
+    discountPercentage: 13.39,
+    stockQuantity: 84,
+    brand: "65a7e20102e12c44f59943fc",
+    category: "65a7e24602e12c44f5994433",
+    thumbnail: "https://cdn.dummyjson.com/product-images/40/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/40/1.jpg",
+      "https://cdn.dummyjson.com/product-images/40/2.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994476",
+    title: "NIGHT SUIT",
+    description: "NIGHT SUIT RED MICKY MOUSE..  For Girls. Fantastic Suits.",
+    price: 55,
+    discountPercentage: 15.05,
+    stockQuantity: 21,
+    brand: "65a7e20102e12c44f59943fd",
+    category: "65a7e24602e12c44f5994434",
+    thumbnail: "https://cdn.dummyjson.com/product-images/41/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/41/1.jpg",
+      "https://cdn.dummyjson.com/product-images/41/2.webp",
+      "https://cdn.dummyjson.com/product-images/41/3.jpg",
+      "https://cdn.dummyjson.com/product-images/41/4.jpg",
+      "https://cdn.dummyjson.com/product-images/41/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994477",
+    title: "Stiched Kurta plus trouser",
+    description:
+      "FABRIC: LILEIN CHEST: 21 LENGHT: 37 TROUSER: (38) :ARABIC LILEIN",
+    price: 80,
+    discountPercentage: 15.37,
+    stockQuantity: 148,
+    brand: "65a7e20102e12c44f59943fe",
+    category: "65a7e24602e12c44f5994434",
+    thumbnail: "https://cdn.dummyjson.com/product-images/42/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/42/1.png",
+      "https://cdn.dummyjson.com/product-images/42/2.png",
+      "https://cdn.dummyjson.com/product-images/42/3.png",
+      "https://cdn.dummyjson.com/product-images/42/4.jpg",
+      "https://cdn.dummyjson.com/product-images/42/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994478",
+    title: "frock gold printed",
+    description:
+      "Ghazi fabric long frock gold printed ready to wear stitched collection (G992)",
+    price: 600,
+    discountPercentage: 15.55,
+    stockQuantity: 150,
+    brand: "65a7e20102e12c44f59943ff",
+    category: "65a7e24602e12c44f5994434",
+    thumbnail: "https://cdn.dummyjson.com/product-images/43/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/43/1.jpg",
+      "https://cdn.dummyjson.com/product-images/43/2.jpg",
+      "https://cdn.dummyjson.com/product-images/43/3.jpg",
+      "https://cdn.dummyjson.com/product-images/43/4.jpg",
+      "https://cdn.dummyjson.com/product-images/43/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994479",
+    title: "Ladies Multicolored Dress",
+    description:
+      "This classy shirt for women gives you a gorgeous look on everyday wear and specially for semi-casual wears.",
+    price: 79,
+    discountPercentage: 16.88,
+    stockQuantity: 2,
+    brand: "65a7e20102e12c44f59943ff",
+    category: "65a7e24602e12c44f5994434",
+    thumbnail: "https://cdn.dummyjson.com/product-images/44/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/44/1.jpg",
+      "https://cdn.dummyjson.com/product-images/44/2.jpg",
+      "https://cdn.dummyjson.com/product-images/44/3.jpg",
+      "https://cdn.dummyjson.com/product-images/44/4.jpg",
+      "https://cdn.dummyjson.com/product-images/44/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447a",
+    title: "Malai Maxi Dress",
+    description:
+      "Ready to wear, Unique design according to modern standard fashion, Best fitting ,Imported stuff",
+    price: 50,
+    discountPercentage: 5.07,
+    stockQuantity: 96,
+    brand: "65a7e20102e12c44f5994400",
+    category: "65a7e24602e12c44f5994434",
+    thumbnail: "https://cdn.dummyjson.com/product-images/45/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/45/1.jpg",
+      "https://cdn.dummyjson.com/product-images/45/2.webp",
+      "https://cdn.dummyjson.com/product-images/45/3.jpg",
+      "https://cdn.dummyjson.com/product-images/45/4.jpg",
+      "https://cdn.dummyjson.com/product-images/45/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447b",
+    title: "women's shoes",
+    description:
+      "Close: Lace, Style with bottom: Increased inside, Sole Material: Rubber",
+    price: 40,
+    discountPercentage: 16.96,
+    stockQuantity: 72,
+    brand: "65a7e20102e12c44f5994401",
+    category: "65a7e24602e12c44f5994435",
+    thumbnail: "https://cdn.dummyjson.com/product-images/46/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/46/1.webp",
+      "https://cdn.dummyjson.com/product-images/46/2.jpg",
+      "https://cdn.dummyjson.com/product-images/46/3.jpg",
+      "https://cdn.dummyjson.com/product-images/46/4.jpg",
+      "https://cdn.dummyjson.com/product-images/46/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447c",
+    title: "Sneaker shoes",
+    description:
+      "Synthetic Leather Casual Sneaker shoes for Women/girls Sneakers For Women",
+    price: 120,
+    discountPercentage: 10.37,
+    stockQuantity: 50,
+    brand: "65a7e20102e12c44f5994402",
+    category: "65a7e24602e12c44f5994435",
+    thumbnail: "https://cdn.dummyjson.com/product-images/47/thumbnail.jpeg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/47/1.jpg",
+      "https://cdn.dummyjson.com/product-images/47/2.jpg",
+      "https://cdn.dummyjson.com/product-images/47/3.jpg",
+      "https://cdn.dummyjson.com/product-images/47/thumbnail.jpeg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447d",
+    title: "Women Strip Heel",
+    description:
+      "Features: Flip-flops, Mid Heel, Comfortable, Striped Heel, Antiskid, Striped",
+    price: 40,
+    discountPercentage: 10.83,
+    stockQuantity: 25,
+    brand: "65a7e20102e12c44f5994403",
+    category: "65a7e24602e12c44f5994435",
+    thumbnail: "https://cdn.dummyjson.com/product-images/48/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/48/1.jpg",
+      "https://cdn.dummyjson.com/product-images/48/2.jpg",
+      "https://cdn.dummyjson.com/product-images/48/3.jpg",
+      "https://cdn.dummyjson.com/product-images/48/4.jpg",
+      "https://cdn.dummyjson.com/product-images/48/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447e",
+    title: "Chappals & Shoe Ladies Metallic",
+    description:
+      "Womens Chappals & Shoe Ladies Metallic Tong Thong Sandal Flat Summer 2020 Maasai Sandals",
+    price: 23,
+    discountPercentage: 2.62,
+    stockQuantity: 107,
+    brand: "65a7e20102e12c44f5994404",
+    category: "65a7e24602e12c44f5994435",
+    thumbnail: "https://cdn.dummyjson.com/product-images/49/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/49/1.jpg",
+      "https://cdn.dummyjson.com/product-images/49/2.jpg",
+      "https://cdn.dummyjson.com/product-images/49/3.webp",
+      "https://cdn.dummyjson.com/product-images/49/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599447f",
+    title: "Women Shoes",
+    description:
+      "2020 New Arrivals Genuine Leather Fashion Trend Platform Summer Women Shoes",
+    price: 36,
+    discountPercentage: 16.87,
+    stockQuantity: 46,
+    brand: "65a7e20102e12c44f5994405",
+    category: "65a7e24602e12c44f5994435",
+    thumbnail: "https://cdn.dummyjson.com/product-images/50/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/50/1.jpeg",
+      "https://cdn.dummyjson.com/product-images/50/2.jpg",
+      "https://cdn.dummyjson.com/product-images/50/3.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994480",
+    title: "half sleeves T shirts",
+    description:
+      "Many store is creating new designs and trend every month and every year. Daraz.pk have a beautiful range of men fashion brands",
+    price: 23,
+    discountPercentage: 12.76,
+    stockQuantity: 132,
+    brand: "65a7e20102e12c44f5994406",
+    category: "65a7e24602e12c44f5994436",
+    thumbnail: "https://cdn.dummyjson.com/product-images/51/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/51/1.png",
+      "https://cdn.dummyjson.com/product-images/51/2.jpg",
+      "https://cdn.dummyjson.com/product-images/51/3.jpg",
+      "https://cdn.dummyjson.com/product-images/51/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994481",
+    title: "FREE FIRE T Shirt",
+    description:
+      "quality and professional print - It doesn't just look high quality, it is high quality.",
+    price: 10,
+    discountPercentage: 14.72,
+    stockQuantity: 128,
+    brand: "65a7e20102e12c44f5994407",
+    category: "65a7e24602e12c44f5994436",
+    thumbnail: "https://cdn.dummyjson.com/product-images/52/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/52/1.png",
+      "https://cdn.dummyjson.com/product-images/52/2.png",
+      "https://cdn.dummyjson.com/product-images/52/3.jpg",
+      "https://cdn.dummyjson.com/product-images/52/4.jpg",
+      "https://cdn.dummyjson.com/product-images/52/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994482",
+    title: "printed high quality T shirts",
+    description: "Brand: vintage Apparel ,Export quality",
+    price: 35,
+    discountPercentage: 7.54,
+    stockQuantity: 6,
+    brand: "65a7e20102e12c44f5994406",
+    category: "65a7e24602e12c44f5994436",
+    thumbnail: "https://cdn.dummyjson.com/product-images/53/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/53/1.webp",
+      "https://cdn.dummyjson.com/product-images/53/2.jpg",
+      "https://cdn.dummyjson.com/product-images/53/3.jpg",
+      "https://cdn.dummyjson.com/product-images/53/4.jpg",
+      "https://cdn.dummyjson.com/product-images/53/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994483",
+    title: "Pubg Printed Graphic T-Shirt",
+    description:
+      "Product Description Features: 100% Ultra soft Polyester Jersey. Vibrant & colorful printing on front. Feels soft as cotton without ever cracking",
+    price: 46,
+    discountPercentage: 16.44,
+    stockQuantity: 136,
+    brand: "65a7e20102e12c44f5994408",
+    category: "65a7e24602e12c44f5994436",
+    thumbnail: "https://cdn.dummyjson.com/product-images/54/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/54/1.jpg",
+      "https://cdn.dummyjson.com/product-images/54/2.jpg",
+      "https://cdn.dummyjson.com/product-images/54/3.jpg",
+      "https://cdn.dummyjson.com/product-images/54/4.jpg",
+      "https://cdn.dummyjson.com/product-images/54/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994484",
+    title: "Money Heist Printed Summer T Shirts",
+    description: "Fabric Jercy, Size: M & L Wear Stylish Dual Stiched",
+    price: 66,
+    discountPercentage: 15.97,
+    stockQuantity: 122,
+    brand: "65a7e20102e12c44f5994408",
+    category: "65a7e24602e12c44f5994436",
+    thumbnail: "https://cdn.dummyjson.com/product-images/55/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/55/1.jpg",
+      "https://cdn.dummyjson.com/product-images/55/2.webp",
+      "https://cdn.dummyjson.com/product-images/55/3.jpg",
+      "https://cdn.dummyjson.com/product-images/55/4.jpg",
+      "https://cdn.dummyjson.com/product-images/55/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994485",
+    title: "Sneakers Joggers Shoes",
+    description:
+      "Gender: Men , Colors: Same as DisplayedCondition: 100% Brand New",
+    price: 40,
+    discountPercentage: 12.57,
+    stockQuantity: 6,
+    brand: "65a7e20102e12c44f5994409",
+    category: "65a7e24602e12c44f5994437",
+    thumbnail: "https://cdn.dummyjson.com/product-images/56/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/56/1.jpg",
+      "https://cdn.dummyjson.com/product-images/56/2.jpg",
+      "https://cdn.dummyjson.com/product-images/56/3.jpg",
+      "https://cdn.dummyjson.com/product-images/56/4.jpg",
+      "https://cdn.dummyjson.com/product-images/56/5.jpg",
+      "https://cdn.dummyjson.com/product-images/56/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994486",
+    title: "Loafers for men",
+    description:
+      "Men Shoes - Loafers for men - Rubber Shoes - Nylon Shoes - Shoes for men - Moccassion - Pure Nylon (Rubber) Expot Quality.",
+    price: 47,
+    discountPercentage: 10.91,
+    stockQuantity: 20,
+    brand: "65a7e20102e12c44f599440a",
+    category: "65a7e24602e12c44f5994437",
+    thumbnail: "https://cdn.dummyjson.com/product-images/57/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/57/1.jpg",
+      "https://cdn.dummyjson.com/product-images/57/2.jpg",
+      "https://cdn.dummyjson.com/product-images/57/3.jpg",
+      "https://cdn.dummyjson.com/product-images/57/4.jpg",
+      "https://cdn.dummyjson.com/product-images/57/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994487",
+    title: "formal offices shoes",
+    description:
+      "Pattern Type: Solid, Material: PU, Toe Shape: Pointed Toe ,Outsole Material: Rubber",
+    price: 57,
+    discountPercentage: 12,
+    stockQuantity: 68,
+    brand: "65a7e20102e12c44f5994408",
+    category: "65a7e24602e12c44f5994437",
+    thumbnail: "https://cdn.dummyjson.com/product-images/58/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/58/1.jpg",
+      "https://cdn.dummyjson.com/product-images/58/2.jpg",
+      "https://cdn.dummyjson.com/product-images/58/3.jpg",
+      "https://cdn.dummyjson.com/product-images/58/4.jpg",
+      "https://cdn.dummyjson.com/product-images/58/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994488",
+    title: "Spring and summershoes",
+    description:
+      "Comfortable stretch cloth, lightweight body; ,rubber sole, anti-skid wear;",
+    price: 20,
+    discountPercentage: 8.71,
+    stockQuantity: 137,
+    brand: "65a7e20102e12c44f5994409",
+    category: "65a7e24602e12c44f5994437",
+    thumbnail: "https://cdn.dummyjson.com/product-images/59/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/59/1.jpg",
+      "https://cdn.dummyjson.com/product-images/59/2.jpg",
+      "https://cdn.dummyjson.com/product-images/59/3.jpg",
+      "https://cdn.dummyjson.com/product-images/59/4.jpg",
+      "https://cdn.dummyjson.com/product-images/59/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994489",
+    title: "Stylish Casual Jeans Shoes",
+    description:
+      "High Quality ,Stylish design ,Comfortable wear ,FAshion ,Durable",
+    price: 58,
+    discountPercentage: 7.55,
+    stockQuantity: 129,
+    brand: "65a7e20102e12c44f5994409",
+    category: "65a7e24602e12c44f5994437",
+    thumbnail: "https://cdn.dummyjson.com/product-images/60/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/60/1.jpg",
+      "https://cdn.dummyjson.com/product-images/60/2.jpg",
+      "https://cdn.dummyjson.com/product-images/60/3.jpg",
+      "https://cdn.dummyjson.com/product-images/60/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448a",
+    title: "Leather Straps Wristwatch",
+    description: "Style:Sport ,Clasp:Buckles ,Water Resistance Depth:3Bar",
+    price: 120,
+    discountPercentage: 7.14,
+    stockQuantity: 91,
+    brand: "65a7e20102e12c44f599440b",
+    category: "65a7e24602e12c44f5994438",
+    thumbnail: "https://cdn.dummyjson.com/product-images/61/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/61/1.jpg",
+      "https://cdn.dummyjson.com/product-images/61/2.png",
+      "https://cdn.dummyjson.com/product-images/61/3.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448b",
+    title: "Waterproof Leather Brand Watch",
+    description:
+      "Watch Crown With Environmental IPS Bronze Electroplating; Display system of 12 hours",
+    price: 46,
+    discountPercentage: 3.15,
+    stockQuantity: 95,
+    brand: "65a7e20102e12c44f599440c",
+    category: "65a7e24602e12c44f5994438",
+    thumbnail: "https://cdn.dummyjson.com/product-images/62/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/62/1.jpg",
+      "https://cdn.dummyjson.com/product-images/62/2.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448c",
+    title: "Royal Blue Premium Watch",
+    description:
+      "Men Silver Chain Royal Blue Premium Watch Latest Analog Watch",
+    price: 50,
+    discountPercentage: 2.56,
+    stockQuantity: 142,
+    brand: "65a7e20102e12c44f599440c",
+    category: "65a7e24602e12c44f5994438",
+    thumbnail: "https://cdn.dummyjson.com/product-images/63/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/63/1.jpg",
+      "https://cdn.dummyjson.com/product-images/63/2.jpg",
+      "https://cdn.dummyjson.com/product-images/63/3.png",
+      "https://cdn.dummyjson.com/product-images/63/4.jpeg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448d",
+    title: "Leather Strap Skeleton Watch",
+    description:
+      "Leather Strap Skeleton Watch for Men - Stylish and Latest Design",
+    price: 46,
+    discountPercentage: 10.2,
+    stockQuantity: 61,
+    brand: "65a7e20102e12c44f599440d",
+    category: "65a7e24602e12c44f5994438",
+    thumbnail: "https://cdn.dummyjson.com/product-images/64/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/64/1.jpg",
+      "https://cdn.dummyjson.com/product-images/64/2.webp",
+      "https://cdn.dummyjson.com/product-images/64/3.jpg",
+      "https://cdn.dummyjson.com/product-images/64/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448e",
+    title: "Stainless Steel Wrist Watch",
+    description:
+      "Stylish Watch For Man (Luxury) Classy Men's Stainless Steel Wrist Watch - Box Packed",
+    price: 47,
+    discountPercentage: 17.79,
+    stockQuantity: 94,
+    brand: "65a7e20102e12c44f599440e",
+    category: "65a7e24602e12c44f5994438",
+    thumbnail: "https://cdn.dummyjson.com/product-images/65/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/65/1.jpg",
+      "https://cdn.dummyjson.com/product-images/65/2.webp",
+      "https://cdn.dummyjson.com/product-images/65/3.jpg",
+      "https://cdn.dummyjson.com/product-images/65/4.webp",
+      "https://cdn.dummyjson.com/product-images/65/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599448f",
+    title: "Steel Analog Couple Watches",
+    description: "Elegant design, Stylish ,Unique & Trendy,Comfortable wear",
+    price: 35,
+    discountPercentage: 3.23,
+    stockQuantity: 24,
+    brand: "65a7e20102e12c44f599440f",
+    category: "65a7e24602e12c44f5994439",
+    thumbnail: "https://cdn.dummyjson.com/product-images/66/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/66/1.jpg",
+      "https://cdn.dummyjson.com/product-images/66/2.jpg",
+      "https://cdn.dummyjson.com/product-images/66/3.jpg",
+      "https://cdn.dummyjson.com/product-images/66/4.JPG",
+      "https://cdn.dummyjson.com/product-images/66/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994490",
+    title: "Fashion Magnetic Wrist Watch",
+    description:
+      "Buy this awesome  The product is originally manufactured by the company and it's a top selling product with a very reasonable",
+    price: 60,
+    discountPercentage: 16.69,
+    stockQuantity: 46,
+    brand: "65a7e20102e12c44f599440f",
+    category: "65a7e24602e12c44f5994439",
+    thumbnail: "https://cdn.dummyjson.com/product-images/67/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/67/1.jpg",
+      "https://cdn.dummyjson.com/product-images/67/2.jpg",
+      "https://cdn.dummyjson.com/product-images/67/3.jpg",
+      "https://cdn.dummyjson.com/product-images/67/4.jpg",
+      "https://cdn.dummyjson.com/product-images/67/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994491",
+    title: "Stylish Luxury Digital Watch",
+    description:
+      "Stylish Luxury Digital Watch For Girls / Women - Led Smart Ladies Watches For Girls",
+    price: 57,
+    discountPercentage: 9.03,
+    stockQuantity: 77,
+    brand: "65a7e20102e12c44f5994410",
+    category: "65a7e24602e12c44f5994439",
+    thumbnail: "https://cdn.dummyjson.com/product-images/68/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/68/1.jpg",
+      "https://cdn.dummyjson.com/product-images/68/2.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994492",
+    title: "Golden Watch Pearls Bracelet Watch",
+    description:
+      "Product details of Golden Watch Pearls Bracelet Watch For Girls - Golden Chain Ladies Bracelate Watch for Women",
+    price: 47,
+    discountPercentage: 17.55,
+    stockQuantity: 89,
+    brand: "65a7e20102e12c44f5994411",
+    category: "65a7e24602e12c44f5994439",
+    thumbnail: "https://cdn.dummyjson.com/product-images/69/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/69/1.jpg",
+      "https://cdn.dummyjson.com/product-images/69/2.jpg",
+      "https://cdn.dummyjson.com/product-images/69/3.webp",
+      "https://cdn.dummyjson.com/product-images/69/4.jpg",
+      "https://cdn.dummyjson.com/product-images/69/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994493",
+    title: "Stainless Steel Women",
+    description:
+      "Fashion Skmei 1830 Shell Dial Stainless Steel Women Wrist Watch Lady Bracelet Watch Quartz Watches Ladies",
+    price: 35,
+    discountPercentage: 8.98,
+    stockQuantity: 111,
+    brand: "65a7e20102e12c44f5994412",
+    category: "65a7e24602e12c44f5994439",
+    thumbnail: "https://cdn.dummyjson.com/product-images/70/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/70/1.jpg",
+      "https://cdn.dummyjson.com/product-images/70/2.jpg",
+      "https://cdn.dummyjson.com/product-images/70/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994494",
+    title: "Women Shoulder Bags",
+    description:
+      "LouisWill Women Shoulder Bags Long Clutches Cross Body Bags Phone Bags PU Leather Hand Bags Large Capacity Card Holders Zipper Coin Purses Fashion Crossbody Bags for Girls Ladies",
+    price: 46,
+    discountPercentage: 14.65,
+    stockQuantity: 17,
+    brand: "65a7e20102e12c44f5994413",
+    category: "65a7e24602e12c44f599443a",
+    thumbnail: "https://cdn.dummyjson.com/product-images/71/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/71/1.jpg",
+      "https://cdn.dummyjson.com/product-images/71/2.jpg",
+      "https://cdn.dummyjson.com/product-images/71/3.webp",
+      "https://cdn.dummyjson.com/product-images/71/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994495",
+    title: "Handbag For Girls",
+    description:
+      "This fashion is designed to add a charming effect to your casual outfit. This Bag is made of synthetic leather.",
+    price: 23,
+    discountPercentage: 17.5,
+    stockQuantity: 27,
+    brand: "65a7e20102e12c44f5994413",
+    category: "65a7e24602e12c44f599443a",
+    thumbnail: "https://cdn.dummyjson.com/product-images/72/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/72/1.jpg",
+      "https://cdn.dummyjson.com/product-images/72/2.png",
+      "https://cdn.dummyjson.com/product-images/72/3.webp",
+      "https://cdn.dummyjson.com/product-images/72/4.jpg",
+      "https://cdn.dummyjson.com/product-images/72/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994496",
+    title: "Fancy hand clutch",
+    description:
+      "This fashion is designed to add a charming effect to your casual outfit. This Bag is made of synthetic leather.",
+    price: 44,
+    discountPercentage: 10.39,
+    stockQuantity: 101,
+    brand: "65a7e20102e12c44f5994412",
+    category: "65a7e24602e12c44f599443a",
+    thumbnail: "https://cdn.dummyjson.com/product-images/73/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/73/1.jpg",
+      "https://cdn.dummyjson.com/product-images/73/2.webp",
+      "https://cdn.dummyjson.com/product-images/73/3.jpg",
+      "https://cdn.dummyjson.com/product-images/73/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994497",
+    title: "Leather Hand Bag",
+    description:
+      "It features an attractive design that makes it a must have accessory in your collection. We sell different kind of bags for boys, kids, women, girls and also for unisex.",
+    price: 57,
+    discountPercentage: 11.19,
+    stockQuantity: 43,
+    brand: "65a7e20102e12c44f5994414",
+    category: "65a7e24602e12c44f599443a",
+    thumbnail: "https://cdn.dummyjson.com/product-images/74/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/74/1.jpg",
+      "https://cdn.dummyjson.com/product-images/74/2.jpg",
+      "https://cdn.dummyjson.com/product-images/74/3.jpg",
+      "https://cdn.dummyjson.com/product-images/74/4.jpg",
+      "https://cdn.dummyjson.com/product-images/74/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994498",
+    title: "Seven Pocket Women Bag",
+    description:
+      "Seven Pocket Women Bag Handbags Lady Shoulder Crossbody Bag Female Purse Seven Pocket Bag",
+    price: 68,
+    discountPercentage: 14.87,
+    stockQuantity: 13,
+    brand: "65a7e20102e12c44f5994415",
+    category: "65a7e24602e12c44f599443a",
+    thumbnail: "https://cdn.dummyjson.com/product-images/75/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/75/1.jpg",
+      "https://cdn.dummyjson.com/product-images/75/2.jpg",
+      "https://cdn.dummyjson.com/product-images/75/3.jpg",
+      "https://cdn.dummyjson.com/product-images/75/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f5994499",
+    title: "Silver Ring Set Women",
+    description:
+      "Jewelry Type:RingsCertificate Type:NonePlating:Silver PlatedShapeattern:noneStyle:CLASSICReligious",
+    price: 70,
+    discountPercentage: 13.57,
+    stockQuantity: 51,
+    brand: "65a7e20102e12c44f5994416",
+    category: "65a7e24602e12c44f599443b",
+    thumbnail: "https://cdn.dummyjson.com/product-images/76/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/76/1.jpg",
+      "https://cdn.dummyjson.com/product-images/76/2.jpg",
+      "https://cdn.dummyjson.com/product-images/76/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449a",
+    title: "Rose Ring",
+    description:
+      "Brand: The Greetings Flower Colour: RedRing Colour: GoldenSize: Adjustable",
+    price: 100,
+    discountPercentage: 3.22,
+    stockQuantity: 149,
+    brand: "65a7e20102e12c44f5994414",
+    category: "65a7e24602e12c44f599443b",
+    thumbnail: "https://cdn.dummyjson.com/product-images/77/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/77/1.jpg",
+      "https://cdn.dummyjson.com/product-images/77/2.jpg",
+      "https://cdn.dummyjson.com/product-images/77/3.jpg",
+      "https://cdn.dummyjson.com/product-images/77/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449b",
+    title: "Rhinestone Korean Style Open Rings",
+    description:
+      "Fashion Jewellery 3Pcs Adjustable Pearl Rhinestone Korean Style Open Rings For Women",
+    price: 30,
+    discountPercentage: 8.02,
+    stockQuantity: 9,
+    brand: "65a7e20102e12c44f5994417",
+    category: "65a7e24602e12c44f599443b",
+    thumbnail: "https://cdn.dummyjson.com/product-images/78/thumbnail.jpg",
+    images: ["https://cdn.dummyjson.com/product-images/78/thumbnail.jpg"],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449c",
+    title: "Elegant Female Pearl Earrings",
+    description:
+      "Elegant Female Pearl Earrings Set Zircon Pearl Earings Women Party Accessories 9 Pairs/Set",
+    price: 30,
+    discountPercentage: 12.8,
+    stockQuantity: 16,
+    brand: "65a7e20102e12c44f5994417",
+    category: "65a7e24602e12c44f599443b",
+    thumbnail: "https://cdn.dummyjson.com/product-images/79/thumbnail.jpg",
+    images: ["https://cdn.dummyjson.com/product-images/79/1.jpg"],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449d",
+    title: "Chain Pin Tassel Earrings",
+    description:
+      "Pair Of Ear Cuff Butterfly Long Chain Pin Tassel Earrings - Silver ( Long Life Quality Product)",
+    price: 45,
+    discountPercentage: 17.75,
+    stockQuantity: 9,
+    brand: "65a7e20102e12c44f5994418",
+    category: "65a7e24602e12c44f599443b",
+    thumbnail: "https://cdn.dummyjson.com/product-images/80/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/80/1.jpg",
+      "https://cdn.dummyjson.com/product-images/80/2.jpg",
+      "https://cdn.dummyjson.com/product-images/80/3.png",
+      "https://cdn.dummyjson.com/product-images/80/4.jpg",
+      "https://cdn.dummyjson.com/product-images/80/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449e",
+    title: "Round Silver Frame Sun Glasses",
+    description:
+      "A pair of sunglasses can protect your eyes from being hurt. For car driving, vacation travel, outdoor activities, social gatherings,",
+    price: 19,
+    discountPercentage: 10.1,
+    stockQuantity: 78,
+    brand: "65a7e20102e12c44f5994419",
+    category: "65a7e24602e12c44f599443c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/81/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/81/1.jpg",
+      "https://cdn.dummyjson.com/product-images/81/2.jpg",
+      "https://cdn.dummyjson.com/product-images/81/3.jpg",
+      "https://cdn.dummyjson.com/product-images/81/4.webp",
+      "https://cdn.dummyjson.com/product-images/81/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f599449f",
+    title: "Kabir Singh Square Sunglass",
+    description:
+      "Orignal Metal Kabir Singh design 2020 Sunglasses Men Brand Designer Sun Glasses Kabir Singh Square Sunglass",
+    price: 50,
+    discountPercentage: 15.6,
+    stockQuantity: 78,
+    brand: "65a7e20102e12c44f5994419",
+    category: "65a7e24602e12c44f599443c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/82/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/82/1.jpg",
+      "https://cdn.dummyjson.com/product-images/82/2.webp",
+      "https://cdn.dummyjson.com/product-images/82/3.jpg",
+      "https://cdn.dummyjson.com/product-images/82/4.jpg",
+      "https://cdn.dummyjson.com/product-images/82/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a0",
+    title: "Wiley X Night Vision Yellow Glasses",
+    description:
+      "Wiley X Night Vision Yellow Glasses for Riders - Night Vision Anti Fog Driving Glasses - Free Night Glass Cover - Shield Eyes From Dust and Virus- For Night Sport Matches",
+    price: 30,
+    discountPercentage: 6.33,
+    stockQuantity: 115,
+    brand: "65a7e20102e12c44f599441a",
+    category: "65a7e24602e12c44f599443c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/83/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/83/1.jpg",
+      "https://cdn.dummyjson.com/product-images/83/2.jpg",
+      "https://cdn.dummyjson.com/product-images/83/3.jpg",
+      "https://cdn.dummyjson.com/product-images/83/4.jpg",
+      "https://cdn.dummyjson.com/product-images/83/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a1",
+    title: "Square Sunglasses",
+    description:
+      "Fashion Oversized Square Sunglasses Retro Gradient Big Frame Sunglasses For Women One Piece Gafas Shade Mirror Clear Lens 17059",
+    price: 28,
+    discountPercentage: 13.89,
+    stockQuantity: 64,
+    brand: "65a7e20102e12c44f599441a",
+    category: "65a7e24602e12c44f599443c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/84/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/84/1.jpg",
+      "https://cdn.dummyjson.com/product-images/84/2.jpg",
+      "https://cdn.dummyjson.com/product-images/84/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a2",
+    title: "LouisWill Men Sunglasses",
+    description:
+      "LouisWill Men Sunglasses Polarized Sunglasses UV400 Sunglasses Day Night Dual Use Safety Driving Night Vision Eyewear AL-MG Frame Sun Glasses with Free Box for Drivers",
+    price: 50,
+    discountPercentage: 11.27,
+    stockQuantity: 92,
+    brand: "65a7e20102e12c44f5994413",
+    category: "65a7e24602e12c44f599443c",
+    thumbnail: "https://cdn.dummyjson.com/product-images/85/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/85/1.jpg",
+      "https://cdn.dummyjson.com/product-images/85/2.jpg",
+      "https://cdn.dummyjson.com/product-images/85/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a3",
+    title: "Bluetooth Aux",
+    description:
+      "Bluetooth Aux Bluetooth Car Aux Car Bluetooth Transmitter Aux Audio Receiver Handfree Car Bluetooth Music Receiver Universal 3.5mm Streaming A2DP Wireless Auto AUX Audio Adapter With Mic For Phone MP3",
+    price: 25,
+    discountPercentage: 10.56,
+    stockQuantity: 22,
+    brand: "65a7e20102e12c44f599441b",
+    category: "65a7e24602e12c44f599443d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/86/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/86/1.jpg",
+      "https://cdn.dummyjson.com/product-images/86/2.webp",
+      "https://cdn.dummyjson.com/product-images/86/3.jpg",
+      "https://cdn.dummyjson.com/product-images/86/4.jpg",
+      "https://cdn.dummyjson.com/product-images/86/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a4",
+    title: "t Temperature Controller Incubator Controller",
+    description:
+      "Both Heat and Cool Purpose, Temperature control range; -50 to +110, Temperature measurement accuracy; 0.1, Control accuracy; 0.1",
+    price: 40,
+    discountPercentage: 11.3,
+    stockQuantity: 37,
+    brand: "65a7e20102e12c44f599441c",
+    category: "65a7e24602e12c44f599443d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/87/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/87/1.jpg",
+      "https://cdn.dummyjson.com/product-images/87/2.jpg",
+      "https://cdn.dummyjson.com/product-images/87/3.jpg",
+      "https://cdn.dummyjson.com/product-images/87/4.jpg",
+      "https://cdn.dummyjson.com/product-images/87/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a5",
+    title: "TC Reusable Silicone Magic Washing Gloves",
+    description:
+      "TC Reusable Silicone Magic Washing Gloves with Scrubber, Cleaning Brush Scrubber Gloves Heat Resistant Pair for Cleaning of Kitchen, Dishes, Vegetables and Fruits, Bathroom, Car Wash, Pet Care and Multipurpose",
+    price: 29,
+    discountPercentage: 3.19,
+    stockQuantity: 42,
+    brand: "65a7e20102e12c44f599441d",
+    category: "65a7e24602e12c44f599443d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/88/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/88/1.jpg",
+      "https://cdn.dummyjson.com/product-images/88/2.jpg",
+      "https://cdn.dummyjson.com/product-images/88/3.jpg",
+      "https://cdn.dummyjson.com/product-images/88/4.webp",
+      "https://cdn.dummyjson.com/product-images/88/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a6",
+    title: "Qualcomm original Car Charger",
+    description:
+      "best Quality CHarger , Highly Recommended to all best Quality CHarger , Highly Recommended to all",
+    price: 40,
+    discountPercentage: 17.53,
+    stockQuantity: 79,
+    brand: "65a7e20102e12c44f599441d",
+    category: "65a7e24602e12c44f599443d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/89/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/89/1.jpg",
+      "https://cdn.dummyjson.com/product-images/89/2.jpg",
+      "https://cdn.dummyjson.com/product-images/89/3.jpg",
+      "https://cdn.dummyjson.com/product-images/89/4.jpg",
+      "https://cdn.dummyjson.com/product-images/89/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a7",
+    title: "Cycle Bike Glow",
+    description:
+      "Universal fitment and easy to install no special wires, can be easily installed and removed. Fits most standard tyre air stem valves of road, mountain bicycles, motocycles and cars.Bright led will turn on w",
+    price: 35,
+    discountPercentage: 11.08,
+    stockQuantity: 63,
+    brand: "65a7e20102e12c44f599441e",
+    category: "65a7e24602e12c44f599443d",
+    thumbnail: "https://cdn.dummyjson.com/product-images/90/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/90/1.jpg",
+      "https://cdn.dummyjson.com/product-images/90/2.jpg",
+      "https://cdn.dummyjson.com/product-images/90/3.jpg",
+      "https://cdn.dummyjson.com/product-images/90/4.jpg",
+      "https://cdn.dummyjson.com/product-images/90/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a8",
+    title: "Black Motorbike",
+    description:
+      "Engine Type:Wet sump, Single Cylinder, Four Stroke, Two Valves, Air Cooled with SOHC (Single Over Head Cam) Chain Drive Bore & Stroke:47.0 x 49.5 MM",
+    price: 569,
+    discountPercentage: 13.63,
+    stockQuantity: 115,
+    brand: "65a7e20102e12c44f599441f",
+    category: "65a7e24602e12c44f599443e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/91/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/91/1.jpg",
+      "https://cdn.dummyjson.com/product-images/91/2.jpg",
+      "https://cdn.dummyjson.com/product-images/91/3.jpg",
+      "https://cdn.dummyjson.com/product-images/91/4.jpg",
+      "https://cdn.dummyjson.com/product-images/91/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944a9",
+    title: "HOT SALE IN EUROPE electric racing motorcycle",
+    description:
+      "HOT SALE IN EUROPE electric racing motorcycle electric motorcycle for sale adult electric motorcycles",
+    price: 920,
+    discountPercentage: 14.4,
+    stockQuantity: 22,
+    brand: "65a7e20102e12c44f5994420",
+    category: "65a7e24602e12c44f599443e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/92/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/92/1.jpg",
+      "https://cdn.dummyjson.com/product-images/92/2.jpg",
+      "https://cdn.dummyjson.com/product-images/92/3.jpg",
+      "https://cdn.dummyjson.com/product-images/92/4.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944aa",
+    title: "Automatic Motor Gas Motorcycles",
+    description:
+      "150cc 4-Stroke Motorcycle Automatic Motor Gas Motorcycles Scooter motorcycles 150cc scooter",
+    price: 1050,
+    discountPercentage: 3.34,
+    stockQuantity: 127,
+    brand: "65a7e20102e12c44f5994421",
+    category: "65a7e24602e12c44f599443e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/93/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/93/1.jpg",
+      "https://cdn.dummyjson.com/product-images/93/2.jpg",
+      "https://cdn.dummyjson.com/product-images/93/3.jpg",
+      "https://cdn.dummyjson.com/product-images/93/4.jpg",
+      "https://cdn.dummyjson.com/product-images/93/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944ab",
+    title: "new arrivals Fashion motocross goggles",
+    description:
+      "new arrivals Fashion motocross goggles motorcycle motocross racing motorcycle",
+    price: 900,
+    discountPercentage: 3.85,
+    stockQuantity: 109,
+    brand: "65a7e20102e12c44f5994422",
+    category: "65a7e24602e12c44f599443e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/94/thumbnail.webp",
+    images: [
+      "https://cdn.dummyjson.com/product-images/94/1.webp",
+      "https://cdn.dummyjson.com/product-images/94/2.jpg",
+      "https://cdn.dummyjson.com/product-images/94/3.jpg",
+      "https://cdn.dummyjson.com/product-images/94/thumbnail.webp",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944ac",
+    title: "Wholesale cargo lashing Belt",
+    description:
+      "Wholesale cargo lashing Belt Tie Down end Ratchet strap customized strap 25mm motorcycle 1500kgs with rubber handle",
+    price: 930,
+    discountPercentage: 17.67,
+    stockQuantity: 144,
+    brand: "65a7e20102e12c44f5994423",
+    category: "65a7e24602e12c44f599443e",
+    thumbnail: "https://cdn.dummyjson.com/product-images/95/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/95/1.jpg",
+      "https://cdn.dummyjson.com/product-images/95/2.jpg",
+      "https://cdn.dummyjson.com/product-images/95/3.jpg",
+      "https://cdn.dummyjson.com/product-images/95/4.jpg",
+      "https://cdn.dummyjson.com/product-images/95/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944ad",
+    title: "lighting ceiling kitchen",
+    description:
+      "Wholesale slim hanging decorative kid room lighting ceiling kitchen chandeliers pendant light modern",
+    price: 30,
+    discountPercentage: 14.89,
+    stockQuantity: 96,
+    brand: "65a7e20102e12c44f5994424",
+    category: "65a7e24602e12c44f599443f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/96/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/96/1.jpg",
+      "https://cdn.dummyjson.com/product-images/96/2.jpg",
+      "https://cdn.dummyjson.com/product-images/96/3.jpg",
+      "https://cdn.dummyjson.com/product-images/96/4.jpg",
+      "https://cdn.dummyjson.com/product-images/96/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944ae",
+    title: "Metal Ceramic Flower",
+    description:
+      "Metal Ceramic Flower Chandelier Home Lighting American Vintage Hanging Lighting Pendant Lamp",
+    price: 35,
+    discountPercentage: 10.94,
+    stockQuantity: 146,
+    brand: "65a7e20102e12c44f5994425",
+    category: "65a7e24602e12c44f599443f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/97/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/97/1.jpg",
+      "https://cdn.dummyjson.com/product-images/97/2.jpg",
+      "https://cdn.dummyjson.com/product-images/97/3.jpg",
+      "https://cdn.dummyjson.com/product-images/97/4.webp",
+      "https://cdn.dummyjson.com/product-images/97/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944af",
+    title: "3 lights lndenpant kitchen islang",
+    description:
+      "3 lights lndenpant kitchen islang dining room pendant rice paper chandelier contemporary led pendant light modern chandelier",
+    price: 34,
+    discountPercentage: 5.92,
+    stockQuantity: 44,
+    brand: "65a7e20102e12c44f5994426",
+    category: "65a7e24602e12c44f599443f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/98/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/98/1.jpg",
+      "https://cdn.dummyjson.com/product-images/98/2.jpg",
+      "https://cdn.dummyjson.com/product-images/98/3.jpg",
+      "https://cdn.dummyjson.com/product-images/98/4.jpg",
+      "https://cdn.dummyjson.com/product-images/98/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944b0",
+    title: "American Vintage Wood Pendant Light",
+    description:
+      "American Vintage Wood Pendant Light Farmhouse Antique Hanging Lamp Lampara Colgante",
+    price: 46,
+    discountPercentage: 8.84,
+    stockQuantity: 138,
+    brand: "65a7e20102e12c44f5994425",
+    category: "65a7e24602e12c44f599443f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/99/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/99/1.jpg",
+      "https://cdn.dummyjson.com/product-images/99/2.jpg",
+      "https://cdn.dummyjson.com/product-images/99/3.jpg",
+      "https://cdn.dummyjson.com/product-images/99/4.jpg",
+      "https://cdn.dummyjson.com/product-images/99/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+  {
+    _id: "65a7e45902e12c44f59944b1",
+    title: "Crystal chandelier maria theresa for 12 light",
+    description: "Crystal chandelier maria theresa for 12 light",
+    price: 47,
+    discountPercentage: 16,
+    stockQuantity: 133,
+    brand: "65a7e20102e12c44f5994427",
+    category: "65a7e24602e12c44f599443f",
+    thumbnail: "https://cdn.dummyjson.com/product-images/100/thumbnail.jpg",
+    images: [
+      "https://cdn.dummyjson.com/product-images/100/1.jpg",
+      "https://cdn.dummyjson.com/product-images/100/2.jpg",
+      "https://cdn.dummyjson.com/product-images/100/3.jpg",
+      "https://cdn.dummyjson.com/product-images/100/thumbnail.jpg",
+    ],
+    isDeleted: false,
+    updatedAt: "2024-02-07T09:22:57.840Z",
+  },
+];
+
+exports.seedProduct = async () => {
+  try {
+    await Product.insertMany(products);
+    console.log("Product seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Review.js ====================
+const Review = require("../models/Review");
+
+const reviews = [
+  {
+    _id: "65c252e3dcd9253acfbaa76c",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599444e",
+    rating: 5,
+    comment:
+      "Exceeded expectations! This phone is a game-changer. Lightning fast, stunning camera, incredible battery life. Best phone ever! ",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25339dcd9253acfbaa79e",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994451",
+    rating: 3,
+    comment:
+      "Good, not mind-blowing. Decent phone, not revolutionary. Average camera, battery life, performance.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c2535fdcd9253acfbaa7c9",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994450",
+    rating: 2,
+    comment:
+      "Short battery life. Needs more frequent charging than advertised, especially with heavy usage.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25380dcd9253acfbaa7df",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994452",
+    rating: 5,
+    comment:
+      "Multitasking master! Seamlessly handles all open apps and tasks. So happy with the performance!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c253ebdcd9253acfbaa7f5",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994453",
+    rating: 5,
+    comment:
+      "Powerhouse performer! This laptop screams speed! Handles demanding tasks like video editing and gaming with ease. Blazing fast processor, smooth multitasking, never a lag in sight. Highly recommend for power users!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25416dcd9253acfbaa80b",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994454",
+    rating: 3,
+    comment:
+      "Almost perfect, except... Love the sleek design, comfortable keyboard, and powerful performance. However, the lack of touch screen functionality is a slight letdown.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c2542cdcd9253acfbaa821",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994455",
+    rating: 5,
+    comment:
+      "Travel buddy goals! Lightweight, slim design, and long battery life make this laptop the perfect travel companion. Explores the world with me without weighing me down. Bonus points for the spill-resistant keyboard (coffee accidents happen!)",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25443dcd9253acfbaa837",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994456",
+    rating: 5,
+    comment:
+      "Content creator's dream! Stunning visuals, vibrant colors, and exceptional color accuracy - the display is a masterpiece! Perfect for photo editing, graphic design, and even casual content creation.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25473dcd9253acfbaa84d",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994457",
+    rating: 3,
+    comment:
+      "Solid performer, but lacks pizzazz. Reliable and gets the job done, but the design feels a bit outdated and the display could be brighter. Good option for basic tasks at a reasonable price.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c254a8dcd9253acfbaa863",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599444f",
+    rating: 5,
+    comment:
+      "Intoxicatingly elegant! This perfume is like a warm embrace on a cool night. Sophisticated and timeless, it leaves a trail of compliments wherever I go. Perfect for special occasions or everyday luxury. ✨",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c254d1dcd9253acfbaa891",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994458",
+    rating: 5,
+    comment:
+      "Confidence booster! This bold and citrusy fragrance is perfect for making a statement. The invigorating blend of grapefruit, bergamot, and vetiver is energizing and leaves me feeling empowered.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c254f2dcd9253acfbaa89e",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994459",
+    rating: 3,
+    comment:
+      "Pricey for the performance. While the scent is nice, the price tag might be a bit high compared to other similar fragrances in the market.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c2551bdcd9253acfbaa8ab",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445a",
+    rating: 5,
+    comment:
+      "Unique and captivating! This perfume is unlike anything I've ever smelled before. The blend of exotic florals and earthy musk creates a mysterious and alluring aroma. Perfect for those who want to stand out from the crowd.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25533dcd9253acfbaa8b8",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445b",
+    rating: 2,
+    comment:
+      "Artificial and chemical smell. This fragrance smells synthetic and unpleasant. Lacks the natural and fresh aroma I was hoping for.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25550dcd9253acfbaa8c5",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445c",
+    rating: 5,
+    comment:
+      "Enchanting aroma! This fragrance is like a walk through a blooming garden. Fresh, floral notes with a hint of sweetness that lingers beautifully. Perfect for daytime wear and leaves a lasting impression.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c255abdcd9253acfbaa908",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445f",
+    rating: 5,
+    comment:
+      "Holy Grail Glow! This moisturizer transformed my dull skin! Deeply hydrates without feeling greasy, and the added vitamin C brightens my complexion beautifully. My skin feels plump, dewy, and radiant all day long.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c255cadcd9253acfbaa916",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994461",
+    rating: 2,
+    comment:
+      "Breakouts galore! This product did the opposite of its intended purpose and clogged my pores, leading to breakouts. Avoid if you have acne-prone skin.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c255e9dcd9253acfbaa924",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f5994460",
+    rating: 3,
+    comment:
+      "Feels good, long-term results unclear. This mask feels refreshing and calming on the skin, but the long-term anti-aging benefits are not yet noticeable. Requires consistent use to see if it delivers on its promises.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c255fcdcd9253acfbaa932",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445e",
+    rating: 3,
+    comment:
+      "Patch test recommended! This product contains potent ingredients that might cause irritation for some skin types. Patch test before applying all over your face to avoid any reactions.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25676dcd9253acfbaa940",
+    user: "65c2526fdcd9253acfbaa731",
+    product: "65a7e45902e12c44f599445d",
+    rating: 5,
+    comment:
+      "Kiss Dryness Goodbye! This hydrating serum is a game-changer for my dry skin. Locks in moisture all day long, leaving my skin feeling soft, comfortable, and plump. No more flaky patches or tight feeling!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25703dcd9253acfbaa970",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599444e",
+    rating: 5,
+    comment:
+      "Great customer service! Quick and helpful in resolving a minor issue. Plus points for that!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25735dcd9253acfbaa988",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994450",
+    rating: 3,
+    comment:
+      "Slow software updates. Great phone, but software updates seem slow. Hopefully, this improves.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25758dcd9253acfbaa9a0",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994451",
+    rating: 5,
+    comment:
+      "Camera king! Stunning photos and videos, even for non-professionals. Portrait mode is especially impressive!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25787dcd9253acfbaa9b8",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994452",
+    rating: 2,
+    comment:
+      "Bloatware overload! Unnecessary pre-installed apps I can't remove. Annoying!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c257c1dcd9253acfbaa9d0",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994453",
+    rating: 3,
+    comment:
+      "Upgradable potential! This laptop offers solid performance and a decent price point. However, some components are not user-upgradeable, limiting future customization.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25805dcd9253acfbaa9e8",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994454",
+    rating: 2,
+    comment:
+      "Overheating issues. Prone to overheating during demanding tasks, making it uncomfortable to use for extended periods.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c2583adcd9253acfbaaa06",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994455",
+    rating: 2,
+    comment:
+      "Stiff keyboard, ouch! Typing for long periods becomes painful on the uncomfortable keyboard. Consider an external keyboard for frequent use.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25950dcd9253acfbaaa88",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994456",
+    rating: 3,
+    comment:
+      "Gamer on a budget? Handles casual games well, but struggles with more demanding titles. Great battery life, portable design, but not ideal for hardcore gamers.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c2596edcd9253acfbaaaa0",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994457",
+    rating: 3,
+    comment:
+      "Gorgeous display, but... The stunning display comes at the cost of battery life. Frequent charging needed, especially for heavy users.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c259a0dcd9253acfbaaab8",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599444f",
+    rating: 2,
+    comment:
+      "Headache in a bottle! The strong floral notes in this fragrance are too much for me. Gave me a headache after just a few minutes of wear.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c259b0dcd9253acfbaaad0",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994458",
+    rating: 2,
+    comment:
+      "Not as described. The online description and reviews painted a different picture. The actual scent is quite different and not what I expected.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c259cadcd9253acfbaaae8",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994459",
+    rating: 5,
+    comment:
+      "Long-lasting love! This fragrance stays true to its scent all day long. No need for constant reapplication. The subtle notes unfold throughout the day, keeping the scent fresh and interesting.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c259e4dcd9253acfbaab00",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599445b",
+    rating: 5,
+    comment:
+      "Unique and captivating! This perfume is unlike anything I've ever smelled before. The blend of exotic florals and earthy musk creates a mysterious and alluring aroma. Perfect for those who want to stand out from the crowd.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c259fadcd9253acfbaab18",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599445c",
+    rating: 1,
+    comment:
+      "Too sweet, feels cloying. This perfume is way too sugary and sweet for my taste. The scent gets overpowering quickly and becomes unpleasant.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25af9dcd9253acfbaab43",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944a1",
+    rating: 1,
+    comment:
+      " Festival Fashionista! These holographic sunnies with their playful design turn heads and make a statement wherever I go. Perfect for adding a touch of festival flair to any outfit. ✨",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25b50dcd9253acfbaab77",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944a0",
+    rating: 3,
+    comment:
+      "Statement Shades, Bold Choice. These neon cat-eye sunnies are definitely eye-catching, but the bold design might not suit all styles and occasions. Be confident in your statement if you choose these!",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+  {
+    _id: "65c25b9bdcd9253acfbaab8d",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944a2",
+    rating: 3,
+    comment:
+      "Not As Dark As Expected. The tint on these sunglasses isn't as dark as advertised, offering less sun protection than anticipated. Choose lenses with a darker tint for strong sunlight conditions.",
+    createdAt: "2024-02-07T10:25:58.424Z",
+  },
+];
+
+exports.seedReview = async () => {
+  try {
+    await Review.insertMany(reviews);
+    console.log("Review seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/User.js ====================
+const User = require("../models/User");
+
+const users = [
+  {
+    _id: "65b8e564ea5ce114184ccb96",
+    name: "demo user",
+    email: "demo@gmail.com",
+    password:'$2a$10$GH8p5cAsGFEdYsLaSfTQ3e1eUs7KbLmVBltjbX4DDCj2eyO2KW/Ze',
+    isVerified: true,
+    isAdmin: false,
+    __v: 0,
+  },
+  {
+    _id: "65c2526fdcd9253acfbaa731",
+    name: "rishibakshi",
+    email: "demo2@gmail.com",
+    password: '$2a$10$tosjkprqtomSah0VJNyKi.TIv1JU65pl1i1IJ6wUttjYw.ENF99jG',
+    isVerified: true,
+    isAdmin: false,
+    __v: 0,
+  },
+];
+
+exports.seedUser = async () => {
+  try {
+    await User.insertMany(users);
+    console.log("User seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/Wishlist.js ====================
+const Wishlist = require("../models/Wishlist");
+
+const wishlistItem = [
+  {
+    _id: "65c2441232078478e340ab60",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599444e",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Can't. Stop. Thinking. About. This. Phone.  All the new features are giving me major FOMO. Next paycheck, consider yourself spent! **",
+  },
+  {
+    _id: "65c2441332078478e340ab64",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599444f",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "My signature scent just got an upgrade! This perfume is the perfect addition to my collection. Next paycheck, we meet again!",
+  },
+  {
+    _id: "65c2441532078478e340ab68",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994450",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Goodbye, clunky laptop! This lightweight tablet would be my new travel buddy for working remotely, catching up on emails, and staying connected. ✈️",
+  },
+  {
+    _id: "65c2441732078478e340ab6c",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994456",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Gaming beast unlocked! This laptop with its latest features like dedicated graphics card, fast refresh rate, powerful cooling system] would be the ultimate gaming machine. Time to conquer those virtual worlds! ⚔️",
+  },
+  {
+    _id: "65c2441a32078478e340ab70",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994452",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Have to buy this for my friend's birthday",
+  },
+  {
+    _id: "65c2442132078478e340ab7a",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944b0",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Mood magic! These smart lights would transform my living room into the perfect movie night haven with customisable colours and dimming. Goodbye, harsh overhead lights! ✨",
+  },
+  {
+    _id: "65c2443632078478e340ab9a",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994474",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "A perfect christmas gift for my wife",
+  },
+  {
+    _id: "65c2444732078478e340aba4",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f5994481",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "A perfect gift for my relative's kid",
+  },
+  {
+    _id: "65c2445332078478e340abab",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f599448a",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "A nice decent watch like this would be a perfect match with my outfit this saturday night",
+  },
+  {
+    _id: "65c2447032078478e340abd4",
+    user: "65b8e564ea5ce114184ccb96",
+    product: "65a7e45902e12c44f59944a2",
+    createdAt: "2024-02-07T10:11:46.794Z",
+    updatedAt: "2024-02-07T10:11:46.794Z",
+    note: "Have to buy this for upcoming beach party",
+  },
+];
+
+exports.seedWishlist = async () => {
+  try {
+    await Wishlist.insertMany(wishlistItem);
+    console.log("Wishlist seeded successfully");
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/seed/seed.js ====================
+const {seedBrand}=require("./Brand")
+const {seedCategory}=require("./Category")
+const {seedProduct}=require("./Product")
+const {seedUser}=require("./User")
+const {seedAddress}=require("./Address")
+const {seedWishlist}=require("./Wishlist")
+const {seedCart}=require("./Cart")
+const {seedReview}=require("./Review")
+const {seedOrder}=require("./Order")
+const {connectToDB}=require("../database/db")
+
+const seedData=async()=>{
+    try {
+        await connectToDB()
+        console.log('Seed [started] please wait..');
+        await seedBrand()
+        await seedCategory()
+        await seedProduct()
+        await seedUser()
+        await seedAddress()
+        await seedWishlist()
+        await seedCart()
+        await seedReview()
+        await seedOrder()
+
+        console.log('Seed completed..');
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+seedData()
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/utils/Emails.js ====================
+const nodemailer = require("nodemailer");
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  secure : true,
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
+  },
+});
+
+exports.sendMail = async(receiverEmail,subject,body) => {
+    await transporter.sendMail({
+    from: process.env.EMAIL,
+    to: receiverEmail,
+    subject: subject,
+    html: body
+  });
+};
+
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/utils/GenerateOtp.js ====================
+exports.generateOTP=()=>{
+    const otp = Math.floor(1000 + Math.random() * 9000);
+    return otp.toString();
+  }
+
+  
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/utils/GenerateToken.js ====================
+require('dotenv').config()
+const jwt=require('jsonwebtoken')
+
+exports.generateToken=(payload,passwordReset=false)=>{
+    return jwt.sign(payload,process.env.SECRET_KEY,{expiresIn:passwordReset?process.env.PASSWORD_RESET_TOKEN_EXPIRATION:process.env.LOGIN_TOKEN_EXPIRATION})
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/utils/SanitizeUser.js ====================
+exports.sanitizeUser=(user)=>{
+    return {_id:user._id,email:user.email,isVerified:user.isVerified,isAdmin:user.isAdmin}
+}
+
+
+==================== /Users/jayvishvakarma/Downloads/Projects/mern-ecommerce/backend/vercel.json ====================
+{
+    "version":2,
+    "builds":[
+        {"src":"*.js","use":"@vercel/node"}
+    ],
+    "routes":[
+        {
+            "src":"/(.*)",
+            "dest":"/"
+        }
+    ]  
+}
+

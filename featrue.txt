@@ -1,0 +1,5 @@
+ChatBot for Recommendaation for products T5 modle
+
+Recommendaation regrging Skin tone Demography(Age, Sex, Etc)
+
+Ethinicity Recommendaation

@@ -1,0 +1,2085 @@
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/about/page.tsx ====================
+import Layout from "../components/Layout"
+import { motion } from "framer-motion"
+
+export default function AboutPage() {
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl mb-8">About Kalakriti</h1>
+          <p className="text-lg text-amber-800 mb-8">
+            Kalakriti is a platform dedicated to celebrating and preserving the rich artistic heritage of India. We
+            connect talented artisans from across the country with art enthusiasts worldwide, providing a marketplace
+            for authentic, handcrafted products that showcase the diverse artistic traditions of India.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div>
+              <h2 className="text-2xl font-bold text-amber-900 mb-4">Our Mission</h2>
+              <p className="text-amber-800">
+                At Kalakriti, our mission is to empower Indian artisans by providing them with a global platform to
+                showcase their skills and creativity. We aim to preserve traditional art forms while promoting
+                sustainable livelihoods for artisans and their communities.
+              </p>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-amber-900 mb-4">Our Vision</h2>
+              <p className="text-amber-800">
+                We envision a world where the rich tapestry of Indian craftsmanship is celebrated and valued globally.
+                Through Kalakriti, we strive to create a bridge between centuries-old artistic traditions and
+                contemporary markets, ensuring the continuity of India's cultural heritage.
+              </p>
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold text-amber-900 mb-4">Our Commitment</h2>
+          <ul className="list-disc list-inside text-amber-800 mb-8">
+            <li>Fair Trade: Ensuring artisans receive fair compensation for their work</li>
+            <li>Quality Assurance: Curating high-quality, authentic handcrafted products</li>
+            <li>Sustainability: Promoting eco-friendly practices in production and packaging</li>
+            <li>Education: Raising awareness about Indian art forms and their cultural significance</li>
+            <li>Community Support: Reinvesting in artisan communities to support their growth and development</li>
+          </ul>
+
+          <div className="bg-amber-100 rounded-lg p-8 mb-12">
+            <h2 className="text-2xl font-bold text-amber-900 mb-4">Our Impact</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-amber-600">1000+</p>
+                <p className="text-amber-800">Artisans Supported</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-amber-600">20+</p>
+                <p className="text-amber-800">States Represented</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-amber-600">50+</p>
+                <p className="text-amber-800">Art Forms Preserved</p>
+              </div>
+              <div className="text-center">
+                <p className="text-3xl font-bold text-amber-600">10,000+</p>
+                <p className="text-amber-800">Products Sold</p>
+              </div>
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-bold text-amber-900 mb-4">Join Us in Our Journey</h2>
+          <p className="text-amber-800 mb-8">
+            By choosing Kalakriti, you're not just buying a product – you're investing in the preservation of India's
+            artistic heritage and supporting the livelihoods of skilled artisans. Join us in our mission to bring the
+            beauty of Indian craftsmanship to the world stage.
+          </p>
+        </motion.div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/analytics/page.tsx ====================
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+
+const data = [
+  { name: "Jan", sales: 4000, visitors: 2400 },
+  { name: "Feb", sales: 3000, visitors: 1398 },
+  { name: "Mar", sales: 2000, visitors: 9800 },
+  { name: "Apr", sales: 2780, visitors: 3908 },
+  { name: "May", sales: 1890, visitors: 4800 },
+  { name: "Jun", sales: 2390, visitors: 3800 },
+]
+
+export default function AnalyticsPage() {
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold text-amber-900 mb-6">Analytics</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sales Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="sales" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Visitor Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="visitors" fill="#82ca9d" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/artisans/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Search, Edit, Trash2 } from "lucide-react"
+
+const artisans = [
+  { id: 1, name: "Rajesh Kumar", craft: "Blue Pottery", location: "Jaipur, Rajasthan", status: "Active" },
+  { id: 2, name: "Sunita Devi", craft: "Madhubani", location: "Madhubani, Bihar", status: "Active" },
+  { id: 3, name: "Amrit Singh", craft: "Phulkari", location: "Patiala, Punjab", status: "Inactive" },
+  // Add more artisans...
+]
+
+export default function ArtisansPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const filteredArtisans = artisans.filter(
+    (artisan) =>
+      artisan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      artisan.craft.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      artisan.location.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold text-amber-900 mb-6">Artisans Management</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search artisans..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button>Add New Artisan</Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Craft</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredArtisans.map((artisan) => (
+            <TableRow key={artisan.id}>
+              <TableCell>{artisan.name}</TableCell>
+              <TableCell>{artisan.craft}</TableCell>
+              <TableCell>{artisan.location}</TableCell>
+              <TableCell>{artisan.status}</TableCell>
+              <TableCell>
+                <Button variant="ghost" size="sm">
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/components/Header.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import { Bell, Menu, X, User } from "lucide-react"
+import Link from "next/link"
+
+export default function AdminHeader({ toggleSidebar }: { toggleSidebar: () => void }) {
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+
+  return (
+    <header className="bg-white shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <motion.button
+                onClick={toggleSidebar}
+                className="inline-flex items-center justify-center p-2 rounded-md text-amber-800 hover:text-amber-900 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-500"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Menu className="block h-6 w-6" aria-hidden="true" />
+              </motion.button>
+            </div>
+          </div>
+          <div className="flex items-center">
+            <motion.div className="relative" animate={isNotificationOpen ? "open" : "closed"}>
+              <motion.button
+                className="p-1 rounded-full text-amber-800 hover:text-amber-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-800 focus:ring-white"
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className="sr-only">View notifications</span>
+                <Bell className="h-6 w-6" aria-hidden="true" />
+              </motion.button>
+              <motion.div
+                className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: isNotificationOpen ? 1 : 0, y: isNotificationOpen ? 0 : -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-100">
+                  New order received
+                </Link>
+                <Link href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-amber-100">
+                  Product out of stock
+                </Link>
+              </motion.div>
+            </motion.div>
+            <div className="ml-3 relative">
+              <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  href="/admin/profile"
+                  className="max-w-xs bg-amber-800 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-800 focus:ring-white"
+                >
+                  <span className="sr-only">Open user menu</span>
+                  <User className="h-8 w-8 rounded-full p-1 bg-amber-700 text-white" />
+                </Link>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/components/Sidebar.tsx ====================
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { motion } from "framer-motion"
+import { Home, Users, ShoppingBag, Settings, BarChart } from "lucide-react"
+
+const sidebarItems = [
+  { name: "Dashboard", href: "/admin", icon: Home },
+  { name: "Artisans", href: "/admin/artisans", icon: Users },
+  { name: "Products", href: "/admin/products", icon: ShoppingBag },
+  { name: "Settings", href: "/admin/settings", icon: Settings },
+  { name: "Analytics", href: "/admin/analytics", icon: BarChart },
+]
+
+export default function AdminSidebar() {
+  const pathname = usePathname()
+
+  return (
+    <div className="bg-amber-800 text-white w-64 min-h-screen py-7 px-2">
+      <Link href="/admin" className="text-white flex items-center space-x-2 px-4 mb-8">
+        <motion.svg
+          className="w-8 h-8"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          whileHover={{ rotate: 360 }}
+          transition={{ duration: 0.5 }}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </motion.svg>
+        <span className="text-2xl font-extrabold">Admin</span>
+      </Link>
+
+      <nav>
+        {sidebarItems.map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`block py-2.5 px-4 rounded transition duration-200 ${
+                isActive ? "bg-amber-700" : "hover:bg-amber-700"
+              }`}
+            >
+              <motion.div className="flex items-center" whileHover={{ x: 10 }} transition={{ duration: 0.2 }}>
+                <item.icon className="h-5 w-5 mr-2" />
+                {item.name}
+              </motion.div>
+            </Link>
+          )
+        })}
+      </nav>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/layout.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import AdminSidebar from "./components/Sidebar"
+import AdminHeader from "./components/Header"
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  return (
+    <div className="flex h-screen bg-amber-50">
+      <motion.div initial={{ x: -250 }} animate={{ x: sidebarOpen ? 0 : -250 }} transition={{ duration: 0.3 }}>
+        <AdminSidebar />
+      </motion.div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <AdminHeader toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-amber-50">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="container mx-auto px-6 py-8"
+          >
+            {children}
+          </motion.div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/page.tsx ====================
+"use client"
+
+import { motion } from "framer-motion"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Users, ShoppingBag, DollarSign, TrendingUp } from "lucide-react"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+
+const data = [
+  { name: "Jan", sales: 4000, visitors: 2400 },
+  { name: "Feb", sales: 3000, visitors: 1398 },
+  { name: "Mar", sales: 2000, visitors: 9800 },
+  { name: "Apr", sales: 2780, visitors: 3908 },
+  { name: "May", sales: 1890, visitors: 4800 },
+  { name: "Jun", sales: 2390, visitors: 3800 },
+]
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+}
+
+export default function AdminDashboard() {
+  return (
+    <div>
+      <motion.h1
+        className="text-3xl font-semibold text-amber-900 mb-6"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        Dashboard
+      </motion.h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { title: "Total Users", value: "1,234", icon: Users, change: "+10%" },
+          { title: "Total Products", value: "567", icon: ShoppingBag, change: "+5%" },
+          { title: "Total Revenue", value: "₹1,23,456", icon: DollarSign, change: "+15%" },
+          { title: "Active Artisans", value: "89", icon: TrendingUp, change: "+2%" },
+        ].map((item, index) => (
+          <motion.div
+            key={item.title}
+            variants={cardVariants}
+            initial="hidden"
+            animate="visible"
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+          >
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+                <item.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{item.value}</div>
+                <p className="text-xs text-muted-foreground">{item.change} from last month</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Sales Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="sales" stroke="#8884d8" activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="visitors" stroke="#82ca9d" />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/products/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Search, Edit, Trash2 } from "lucide-react"
+
+const products = [
+  { id: 1, name: "Blue Pottery Vase", category: "Blue Pottery", price: "₹2,500", stock: 15 },
+  { id: 2, name: "Madhubani Painting", category: "Madhubani", price: "₹3,500", stock: 8 },
+  { id: 3, name: "Phulkari Dupatta", category: "Phulkari", price: "₹1,800", stock: 20 },
+  // Add more products...
+]
+
+export default function ProductsPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold text-amber-900 mb-6">Products Management</h1>
+      <div className="flex justify-between items-center mb-6">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search products..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button>Add New Product</Button>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Price</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredProducts.map((product) => (
+            <TableRow key={product.id}>
+              <TableCell>{product.name}</TableCell>
+              <TableCell>{product.category}</TableCell>
+              <TableCell>{product.price}</TableCell>
+              <TableCell>{product.stock}</TableCell>
+              <TableCell>
+                <Button variant="ghost" size="sm">
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/admin/settings.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+
+export default function SettingsPage() {
+  const [settings, setSettings] = useState({
+    siteName: "Kalakriti",
+    siteDescription: "Discover the Beauty of Indian Craftsmanship",
+    contactEmail: "support@kalakriti.com",
+    enableNotifications: true,
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setSettings((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSwitchChange = (checked: boolean) => {
+    setSettings((prev) => ({ ...prev, enableNotifications: checked }))
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Here you would typically send the settings to your backend
+    console.log("Settings saved:", settings)
+  }
+
+  return (
+    <div>
+      <h1 className="text-3xl font-semibold text-amber-900 mb-6">Settings</h1>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <Label htmlFor="siteName">Site Name</Label>
+          <Input id="siteName" name="siteName" value={settings.siteName} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor="siteDescription">Site Description</Label>
+          <Input id="siteDescription" name="siteDescription" value={settings.siteDescription} onChange={handleChange} />
+        </div>
+        <div>
+          <Label htmlFor="contactEmail">Contact Email</Label>
+          <Input
+            id="contactEmail"
+            name="contactEmail"
+            type="email"
+            value={settings.contactEmail}
+            onChange={handleChange}
+          />
+        </div>
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="enableNotifications"
+            checked={settings.enableNotifications}
+            onCheckedChange={handleSwitchChange}
+          />
+          <Label htmlFor="enableNotifications">Enable Notifications</Label>
+        </div>
+        <Button type="submit">Save Settings</Button>
+      </form>
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/art-forms/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import Layout from "../components/Layout"
+import Link from "next/link"
+import { ChevronDown } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const stateArtForms = [
+  {
+    state: "Rajasthan",
+    artForms: ["Blue Pottery", "Phad Painting", "Bandhani"],
+    image: "/rajasthan.jpg",
+  },
+  {
+    state: "Gujarat",
+    artForms: ["Bandhani", "Patola", "Kutch Embroidery"],
+    image: "/gujarat.jpg",
+  },
+  {
+    state: "Maharashtra",
+    artForms: ["Warli Painting", "Paithani Sarees", "Kolhapuri Chappal"],
+    image: "/maharashtra.jpg",
+  },
+  {
+    state: "West Bengal",
+    artForms: ["Kantha Embroidery", "Terracotta", "Dokra"],
+    image: "/west-bengal.jpg",
+  },
+  {
+    state: "Uttar Pradesh",
+    artForms: ["Chikankari", "Zardozi", "Banaras Brocade"],
+    image: "/uttar-pradesh.jpg",
+  },
+  {
+    state: "Tamil Nadu",
+    artForms: ["Tanjore Painting", "Kanchipuram Silk", "Bronze Casting"],
+    image: "/tamil-nadu.jpg",
+  },
+  {
+    state: "Kashmir",
+    artForms: ["Pashmina Shawls", "Papier-mâché", "Kani Shawls"],
+    image: "/kashmir.jpg",
+  },
+  {
+    state: "Madhya Pradesh",
+    artForms: ["Chanderi Weaving", "Gond Art", "Zardozi Embroidery"],
+    image: "/madhya-pradesh.jpg",
+  },
+]
+
+export default function ArtFormsPage() {
+  const [selectedState, setSelectedState] = useState<string | null>(null)
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl mb-8">
+          Explore Art Forms Across India
+        </h1>
+        <p className="text-lg text-amber-800 mb-8">
+          Discover the rich diversity of Indian craftsmanship, state by state. Select a state to explore its unique art
+          forms.
+        </p>
+
+        <Select onValueChange={(value) => setSelectedState(value)}>
+          <SelectTrigger className="w-full md:w-[300px] mb-8">
+            <SelectValue placeholder="Select a state" />
+          </SelectTrigger>
+          <SelectContent>
+            {stateArtForms.map((stateData) => (
+              <SelectItem key={stateData.state} value={stateData.state}>
+                {stateData.state}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+          {stateArtForms
+            .filter((stateData) => !selectedState || stateData.state === selectedState)
+            .map((stateData) => (
+              <motion.div
+                key={stateData.state}
+                className="group relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="w-full h-60 bg-amber-200 rounded-lg overflow-hidden group-hover:opacity-75 transition-opacity duration-300">
+                  <img
+                    src={stateData.image || "/placeholder.svg"}
+                    alt={stateData.state}
+                    className="w-full h-full object-center object-cover"
+                  />
+                </div>
+                <h3 className="mt-4 text-lg font-medium text-amber-900">{stateData.state}</h3>
+                <ul className="mt-2 space-y-1">
+                  {stateData.artForms.map((artForm) => (
+                    <li key={artForm} className="text-sm text-amber-700">
+                      <Link href={`/products?category=${encodeURIComponent(artForm)}`} className="hover:underline">
+                        {artForm}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/artisans/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import Layout from "../components/Layout"
+
+const artisans = [
+  {
+    id: 1,
+    name: "Rajesh Kumar",
+    specialty: "Blue Pottery",
+    location: "Jaipur, Rajasthan",
+    image: "/rajesh-kumar.jpg",
+  },
+  // Add more artisan objects here
+]
+
+export default function ArtisansPage() {
+  const [searchTerm, setSearchTerm] = useState("")
+
+  const filteredArtisans = artisans.filter(
+    (artisan) =>
+      artisan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      artisan.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      artisan.location.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl">Our Artisans</h1>
+        <p className="mt-4 text-amber-800 text-lg">Meet the talented craftspeople behind our unique products.</p>
+        <div className="mt-6">
+          <input
+            type="text"
+            placeholder="Search artisans by name, specialty, or location"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-amber-300 focus:outline-none focus:ring-amber-500 focus:border-amber-500 sm:text-sm rounded-md"
+          />
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+          {filteredArtisans.map((artisan) => (
+            <motion.div
+              key={artisan.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="group relative"
+            >
+              <div className="w-full h-80 bg-amber-200 aspect-w-1 aspect-h-1 rounded-lg overflow-hidden group-hover:opacity-75">
+                <img
+                  src={artisan.image || "/placeholder.svg"}
+                  alt={artisan.name}
+                  className="w-full h-full object-center object-cover"
+                />
+              </div>
+              <div className="mt-4 flex justify-between">
+                <div>
+                  <h3 className="text-lg font-medium text-amber-900">
+                    <a href={`/artisans/${artisan.id}`}>
+                      <span aria-hidden="true" className="absolute inset-0" />
+                      {artisan.name}
+                    </a>
+                  </h3>
+                  <p className="mt-1 text-sm text-amber-700">{artisan.specialty}</p>
+                </div>
+                <p className="text-sm text-amber-800">{artisan.location}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/cart/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import { Trash2 } from "lucide-react"
+import Layout from "../components/Layout"
+
+// Mock cart items. In a real application, this would be managed by a state management solution like Redux or React Context.
+const initialCartItems = [
+  {
+    id: 1,
+    name: "Blue Pottery Vase",
+    price: "₹2,500",
+    quantity: 1,
+    image: "/blue-pottery-vase-1.jpg",
+  },
+  {
+    id: 2,
+    name: "Phulkari Dupatta",
+    price: "₹1,800",
+    quantity: 2,
+    image: "/phulkari-dupatta.jpg",
+  },
+]
+
+export default function Cart() {
+  const [cartItems, setCartItems] = useState(initialCartItems)
+
+  const removeItem = (id: number) => {
+    setCartItems(cartItems.filter((item) => item.id !== id))
+  }
+
+  const updateQuantity = (id: number, newQuantity: number) => {
+    setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)))
+  }
+
+  const total = cartItems.reduce((sum, item) => sum + Number.parseInt(item.price.replace("₹", "")) * item.quantity, 0)
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl">Shopping Cart</h1>
+
+        <div className="mt-12">
+          {cartItems.length === 0 ? (
+            <p className="text-amber-800">Your cart is empty.</p>
+          ) : (
+            <div className="flow-root">
+              <ul className="-my-6 divide-y divide-amber-200">
+                {cartItems.map((item) => (
+                  <motion.li
+                    key={item.id}
+                    className="py-6 flex"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <div className="flex-shrink-0 w-24 h-24 border border-amber-200 rounded-md overflow-hidden">
+                      <img
+                        src={item.image || "/placeholder.svg"}
+                        alt={item.name}
+                        className="w-full h-full object-center object-cover"
+                      />
+                    </div>
+
+                    <div className="ml-4 flex-1 flex flex-col">
+                      <div>
+                        <div className="flex justify-between text-base font-medium text-amber-900">
+                          <h3>{item.name}</h3>
+                          <p className="ml-4">{item.price}</p>
+                        </div>
+                      </div>
+                      <div className="flex-1 flex items-end justify-between text-sm">
+                        <div className="flex items-center">
+                          <label htmlFor={`quantity-${item.id}`} className="mr-2 text-amber-800">
+                            Qty
+                          </label>
+                          <select
+                            id={`quantity-${item.id}`}
+                            name={`quantity-${item.id}`}
+                            value={item.quantity}
+                            onChange={(e) => updateQuantity(item.id, Number.parseInt(e.target.value))}
+                            className="max-w-full rounded-md border border-amber-300 py-1.5 text-base leading-5 font-medium text-amber-900 shadow-sm focus:outline-none focus:ring-1 focus:ring-amber-500 focus:border-amber-500 sm:text-sm"
+                          >
+                            {[1, 2, 3, 4, 5].map((num) => (
+                              <option key={num} value={num}>
+                                {num}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="font-medium text-amber-600 hover:text-amber-500"
+                          >
+                            <Trash2 className="h-5 w-5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {cartItems.length > 0 && (
+          <motion.div
+            className="mt-10"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <div className="flex justify-between text-base font-medium text-amber-900">
+              <p>Subtotal</p>
+              <p>₹{total.toLocaleString()}</p>
+            </div>
+            <p className="mt-0.5 text-sm text-amber-700">Shipping and taxes calculated at checkout.</p>
+            <div className="mt-6">
+              <a
+                href="#"
+                className="flex justify-center items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-amber-600 hover:bg-amber-700"
+              >
+                Checkout
+              </a>
+            </div>
+            <div className="mt-6 flex justify-center text-sm text-center text-amber-700">
+              <p>
+                or{" "}
+                <a href="/" className="font-medium text-amber-600 hover:text-amber-500">
+                  Continue Shopping<span aria-hidden="true"> &rarr;</span>
+                </a>
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/components/Footer.tsx ====================
+import Link from "next/link"
+
+export default function Footer() {
+  return (
+    <footer className="bg-amber-100">
+      <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:py-16 lg:px-8">
+        <div className="xl:grid xl:grid-cols-3 xl:gap-8">
+          <div className="space-y-8 xl:col-span-1">
+            <img className="h-10" src="/logo.svg" alt="Kalakriti" />
+            <p className="text-amber-800 text-base">
+              Celebrating the rich diversity of Indian artisans and their crafts.
+            </p>
+            <div className="flex space-x-6">{/* Add social media icons here */}</div>
+          </div>
+          <div className="mt-12 grid grid-cols-2 gap-8 xl:mt-0 xl:col-span-2">
+            <div className="md:grid md:grid-cols-2 md:gap-8">
+              <div>
+                <h3 className="text-sm font-semibold text-amber-900 tracking-wider uppercase">Shop</h3>
+                <ul className="mt-4 space-y-4">
+                  <li>
+                    <Link href="/products" className="text-base text-amber-800 hover:text-amber-900">
+                      All Products
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/categories" className="text-base text-amber-800 hover:text-amber-900">
+                      Categories
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/artisans" className="text-base text-amber-800 hover:text-amber-900">
+                      Artisans
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+              <div className="mt-12 md:mt-0">
+                <h3 className="text-sm font-semibold text-amber-900 tracking-wider uppercase">Support</h3>
+                <ul className="mt-4 space-y-4">
+                  <li>
+                    <Link href="/faq" className="text-base text-amber-800 hover:text-amber-900">
+                      FAQ
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/shipping" className="text-base text-amber-800 hover:text-amber-900">
+                      Shipping
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/returns" className="text-base text-amber-800 hover:text-amber-900">
+                      Returns
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            <div className="md:grid md:grid-cols-2 md:gap-8">
+              <div>
+                <h3 className="text-sm font-semibold text-amber-900 tracking-wider uppercase">Company</h3>
+                <ul className="mt-4 space-y-4">
+                  <li>
+                    <Link href="/about" className="text-base text-amber-800 hover:text-amber-900">
+                      About
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/blog" className="text-base text-amber-800 hover:text-amber-900">
+                      Blog
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/contact" className="text-base text-amber-800 hover:text-amber-900">
+                      Contact
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+              <div className="mt-12 md:mt-0">
+                <h3 className="text-sm font-semibold text-amber-900 tracking-wider uppercase">Legal</h3>
+                <ul className="mt-4 space-y-4">
+                  <li>
+                    <Link href="/privacy" className="text-base text-amber-800 hover:text-amber-900">
+                      Privacy
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/terms" className="text-base text-amber-800 hover:text-amber-900">
+                      Terms
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="mt-12 border-t border-amber-300 pt-8">
+          <p className="text-base text-amber-700 xl:text-center">&copy; 2023 Kalakriti. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/components/Header.tsx ====================
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { motion } from "framer-motion"
+import { Menu, X, ShoppingCart, User } from "lucide-react"
+
+const navItems = [
+  { name: "Home", href: "/" },
+  { name: "Products", href: "/products" },
+  { name: "Artisans", href: "/artisans" },
+  { name: "About", href: "/about" },
+]
+
+export default function Header() {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <header className="bg-amber-100 shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center py-4 md:justify-start md:space-x-10">
+          <div className="flex justify-start lg:w-0 lg:flex-1">
+            <Link href="/">
+              <span className="sr-only">Kalakriti</span>
+              <img className="h-8 w-auto sm:h-10" src="/logo.svg" alt="Kalakriti Logo" />
+            </Link>
+          </div>
+          <div className="-mr-2 -my-2 md:hidden">
+            <button
+              type="button"
+              className="bg-amber-100 rounded-md p-2 inline-flex items-center justify-center text-amber-800 hover:text-amber-900 hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-500"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              <span className="sr-only">Open menu</span>
+              <Menu className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </div>
+          <nav className="hidden md:flex space-x-10">
+            {navItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className="text-base font-medium text-amber-800 hover:text-amber-900"
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+          <div className="hidden md:flex items-center justify-end md:flex-1 lg:w-0">
+            <Link
+              href="/cart"
+              className="ml-8 whitespace-nowrap inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-amber-600 hover:bg-amber-700"
+            >
+              <ShoppingCart className="h-5 w-5 mr-2" />
+              Cart
+            </Link>
+            <Link
+              href="/account"
+              className="ml-8 whitespace-nowrap inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-amber-600 bg-white hover:bg-amber-50"
+            >
+              <User className="h-5 w-5 mr-2" />
+              Account
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: isOpen ? 1 : 0, height: isOpen ? "auto" : 0 }}
+        transition={{ duration: 0.3 }}
+        className="md:hidden"
+      >
+        <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+          {navItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="block px-3 py-2 rounded-md text-base font-medium text-amber-800 hover:text-amber-900 hover:bg-amber-200"
+            >
+              {item.name}
+            </Link>
+          ))}
+        </div>
+        <div className="pt-4 pb-3 border-t border-amber-300">
+          <div className="flex items-center px-5">
+            <div className="flex-shrink-0">
+              <User className="h-10 w-10 rounded-full" />
+            </div>
+            <div className="ml-3">
+              <div className="text-base font-medium text-amber-800">User Name</div>
+              <div className="text-sm font-medium text-amber-600">user@example.com</div>
+            </div>
+          </div>
+          <div className="mt-3 px-2 space-y-1">
+            <Link
+              href="/account"
+              className="block px-3 py-2 rounded-md text-base font-medium text-amber-800 hover:text-amber-900 hover:bg-amber-200"
+            >
+              Your Account
+            </Link>
+            <Link
+              href="/cart"
+              className="block px-3 py-2 rounded-md text-base font-medium text-amber-800 hover:text-amber-900 hover:bg-amber-200"
+            >
+              Shopping Cart
+            </Link>
+          </div>
+        </div>
+      </motion.div>
+    </header>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/components/Layout.tsx ====================
+import Header from "./Header"
+import Footer from "./Footer"
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-grow">{children}</main>
+      <Footer />
+    </div>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/contact/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import Layout from "../components/Layout"
+import { Mail, Phone, MapPin } from "lucide-react"
+
+export default function ContactPage() {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    // Here you would typically send the form data to your backend
+    console.log("Form submitted:", formData)
+    // Reset form after submission
+    setFormData({ name: "", email: "", message: "" })
+  }
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+          <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl mb-8">Contact Us</h1>
+          <p className="text-lg text-amber-800 mb-8">
+            We'd love to hear from you! Whether you have a question about our products, need assistance with an order,
+            or want to learn more about our artisans, we're here to help.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div>
+              <h2 className="text-2xl font-bold text-amber-900 mb-4">Get in Touch</h2>
+              <ul className="space-y-4">
+                <li className="flex items-center">
+                  <Mail className="h-6 w-6 text-amber-600 mr-2" />
+                  <span className="text-amber-800">support@kalakriti.com</span>
+                </li>
+                <li className="flex items-center">
+                  <Phone className="h-6 w-6 text-amber-600 mr-2" />
+                  <span className="text-amber-800">+91 123 456 7890</span>
+                </li>
+                <li className="flex items-center">
+                  <MapPin className="h-6 w-6 text-amber-600 mr-2" />
+                  <span className="text-amber-800">123 Artisan Street, Craft City, India 110001</span>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-amber-900 mb-4">Send Us a Message</h2>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-amber-700">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="mt-1 block w-full rounded-md border-amber-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-amber-700">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="mt-1 block w-full rounded-md border-amber-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-amber-700">
+                    Message
+                  </label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    rows={4}
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    className="mt-1 block w-full rounded-md border-amber-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+                >
+                  Send Message
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div className="bg-amber-100 rounded-lg p-8">
+            <h2 className="text-2xl font-bold text-amber-900 mb-4">FAQs</h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-medium text-amber-900">How can I track my order?</h3>
+                <p className="text-amber-800">
+                  Once your order is shipped, you'll receive a tracking number via email. You can use this number to
+                  track your package on our website or the courier's website.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-amber-900">What is your return policy?</h3>
+                <p className="text-amber-800">
+                  We accept returns within 14 days of delivery. The item must be unused and in the same condition that
+                  you received it. Please contact us for more details on the return process.
+                </p>
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-amber-900">Do you ship internationally?</h3>
+                <p className="text-amber-800">
+                  Yes, we ship to many countries worldwide. Shipping costs and delivery times vary depending on the
+                  destination. You can see the shipping options available during checkout.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/globals.css ====================
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/layout.tsx ====================
+import type { Metadata } from 'next'
+import './globals.css'
+
+export const metadata: Metadata = {
+  title: 'v0 App',
+  description: 'Created with v0',
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/page.tsx ====================
+"use client"
+
+import { useState, useRef } from "react"
+import Link from "next/link"
+import { motion } from "framer-motion"
+import { ChevronLeft, ChevronRight, ShoppingCart, ArrowRight } from "lucide-react"
+import Layout from "./components/Layout"
+
+// Mock data for reels
+const reels = [
+  { id: 1, video: "/reel-1.mp4", product: "Blue Pottery Vase", price: "₹2,500" },
+  { id: 2, video: "/reel-2.mp4", product: "Phulkari Dupatta", price: "₹1,800" },
+  { id: 3, video: "/reel-3.mp4", product: "Madhubani Painting", price: "₹3,500" },
+  { id: 4, video: "/reel-4.mp4", product: "Kalamkari Wall Hanging", price: "₹2,200" },
+  { id: 5, video: "/reel-5.mp4", product: "Pashmina Shawl", price: "₹4,000" },
+]
+
+// Mock data for state arts
+const stateArts = [
+  { state: "Rajasthan", art: "Blue Pottery", image: "/blue-pottery.jpg" },
+  { state: "Punjab", art: "Phulkari", image: "/phulkari.jpg" },
+  { state: "Bihar", art: "Madhubani", image: "/madhubani.jpg" },
+  { state: "Andhra Pradesh", art: "Kalamkari", image: "/kalamkari.jpg" },
+  { state: "Kashmir", art: "Pashmina", image: "/pashmina.jpg" },
+  { state: "Gujarat", art: "Bandhani", image: "/bandhani.jpg" },
+  { state: "West Bengal", art: "Kantha", image: "/kantha.jpg" },
+  { state: "Uttar Pradesh", art: "Chikankari", image: "/chikankari.jpg" },
+]
+
+export default function Home() {
+  const [currentReel, setCurrentReel] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  const nextReel = () => {
+    setCurrentReel((prev) => (prev + 1) % reels.length)
+  }
+
+  const prevReel = () => {
+    setCurrentReel((prev) => (prev - 1 + reels.length) % reels.length)
+  }
+
+  return (
+    <Layout>
+      <div className="bg-amber-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-24">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-center"
+          >
+            <h1 className="text-4xl tracking-tight font-extrabold text-amber-900 sm:text-5xl md:text-6xl">
+              <span className="block">Discover the Beauty of</span>
+              <span className="block text-amber-600">Indian Craftsmanship</span>
+            </h1>
+            <p className="mt-3 max-w-md mx-auto text-base text-amber-800 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+              Explore a curated collection of authentic handcrafted products from talented artisans across India.
+            </p>
+            <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
+              <div className="rounded-md shadow">
+                <Link
+                  href="/products"
+                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 md:py-4 md:text-lg md:px-10"
+                >
+                  Shop Now
+                </Link>
+              </div>
+              <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
+                <Link
+                  href="/artisans"
+                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-amber-600 bg-white hover:bg-amber-50 md:py-4 md:text-lg md:px-10"
+                >
+                  Meet Our Artisans
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl mb-8">
+          Discover Our Artisan Stories
+        </h2>
+        <div className="relative">
+          <div className="flex justify-center items-center h-[600px] bg-amber-100 rounded-lg overflow-hidden">
+            <video
+              ref={videoRef}
+              src={reels[currentReel].video}
+              className="w-full h-full object-cover"
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-amber-900 to-transparent p-4">
+              <h3 className="text-white text-xl font-semibold">{reels[currentReel].product}</h3>
+              <p className="text-amber-200 text-lg">{reels[currentReel].price}</p>
+              <button
+                className="mt-2 bg-amber-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-amber-700 transition-colors"
+                onClick={() => {
+                  // Add to cart logic here
+                }}
+              >
+                <ShoppingCart className="mr-2" />
+                Add to Cart
+              </button>
+            </div>
+          </div>
+          <button
+            className="absolute top-1/2 left-4 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md"
+            onClick={prevReel}
+          >
+            <ChevronLeft className="text-amber-600" />
+          </button>
+          <button
+            className="absolute top-1/2 right-4 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md"
+            onClick={nextReel}
+          >
+            <ChevronRight className="text-amber-600" />
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-amber-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-8 lg:items-center">
+            <div>
+              <h2 className="text-3xl font-extrabold text-amber-900 sm:text-4xl">Our Commitment to Artisans</h2>
+              <p className="mt-3 max-w-3xl text-lg text-amber-800">
+                We work directly with skilled artisans from various regions of India, ensuring fair wages and preserving
+                traditional craftsmanship. By choosing Kalakriti, you're supporting local communities and helping to
+                keep centuries-old art forms alive.
+              </p>
+              <div className="mt-8 sm:flex">
+                <div className="rounded-md shadow">
+                  <Link
+                    href="/about"
+                    className="flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700"
+                  >
+                    Learn More
+                  </Link>
+                </div>
+              </div>
+            </div>
+            <div className="mt-10 -mx-4 relative lg:mt-0" aria-hidden="true">
+              <img
+                className="relative mx-auto rounded-lg shadow-lg"
+                width={490}
+                src="/artisan-working.jpg"
+                alt="Artisan working on a traditional craft"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl">
+            Arts from Various States
+          </h2>
+          <Link href="/art-forms" className="text-amber-600 hover:text-amber-700 flex items-center">
+            See all states
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+          {stateArts.slice(0, 4).map((art, index) => (
+            <motion.div
+              key={art.state}
+              className="group relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+            >
+              <div className="w-full h-60 bg-amber-200 rounded-lg overflow-hidden group-hover:opacity-75 transition-opacity duration-300">
+                <img
+                  src={art.image || "/placeholder.svg"}
+                  alt={`${art.art} from ${art.state}`}
+                  className="w-full h-full object-center object-cover"
+                />
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-amber-900">{art.state}</h3>
+              <p className="text-sm text-amber-700">{art.art}</p>
+              <Link
+                href={`/art-forms?state=${encodeURIComponent(art.state)}`}
+                className="mt-1 text-sm text-amber-600 hover:underline"
+              >
+                Explore {art.state}'s art forms
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl mb-8">Explore Art Forms</h2>
+        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+          {["Blue Pottery", "Phulkari", "Madhubani", "Kalamkari", "Pashmina", "Tanjore Painting"].map((artForm) => (
+            <motion.div
+              key={artForm}
+              className="group relative"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="w-full h-60 bg-amber-200 rounded-lg overflow-hidden group-hover:opacity-75 transition-opacity duration-300">
+                <img
+                  src={`/${artForm.toLowerCase().replace(" ", "-")}.jpg`}
+                  alt={artForm}
+                  className="w-full h-full object-center object-cover"
+                />
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-amber-900">{artForm}</h3>
+              <Link href={`/products?category=${artForm}`} className="mt-1 text-sm text-amber-600 hover:underline">
+                Explore products
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/products/[id]/page.tsx ====================
+"use client"
+
+import { useState } from "react"
+import { motion } from "framer-motion"
+import { ShoppingCart, Star, Truck } from "lucide-react"
+import Layout from "../../components/Layout"
+import Link from "next/link"
+
+// This is a mock product. In a real application, you would fetch this data based on the product ID.
+const product = {
+  id: 1,
+  name: "Blue Pottery Vase",
+  price: "₹2,500",
+  description: "Handcrafted Blue Pottery vase from Jaipur, featuring intricate floral patterns.",
+  longDescription:
+    "This exquisite Blue Pottery vase is a testament to the rich artistic heritage of Jaipur, Rajasthan. Each piece is meticulously handcrafted by skilled artisans using traditional techniques passed down through generations. The vibrant blue glaze and intricate floral patterns make this vase a stunning decorative piece for any home.",
+  artisan: "Rajesh Kumar",
+  category: "Blue Pottery",
+  origin: "Jaipur, Rajasthan",
+  dimensions: "25cm x 15cm",
+  weight: "1.2 kg",
+  materials: ["Clay", "Quartz", "Raw glaze", "Copper oxide", "Cobalt oxide"],
+  careInstructions: "Clean with a soft, dry cloth. Avoid using water or harsh chemicals.",
+  images: ["/blue-pottery-vase-1.jpg", "/blue-pottery-vase-2.jpg", "/blue-pottery-vase-3.jpg"],
+  rating: 4.8,
+  reviews: 24,
+}
+
+const relatedProducts = [
+  { id: 2, name: "Blue Pottery Plate", price: "₹1,800", image: "/blue-pottery-plate.jpg" },
+  { id: 3, name: "Blue Pottery Tea Set", price: "₹3,500", image: "/blue-pottery-tea-set.jpg" },
+  { id: 4, name: "Blue Pottery Wall Hanging", price: "₹2,200", image: "/blue-pottery-wall-hanging.jpg" },
+]
+
+export default function ProductDetail({ params }: { params: { id: string } }) {
+  const [mainImage, setMainImage] = useState(product.images[0])
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
+          {/* Image gallery */}
+          <motion.div
+            className="flex flex-col-reverse"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="hidden mt-6 w-full max-w-2xl mx-auto sm:block lg:max-w-none">
+              <div className="grid grid-cols-4 gap-6" aria-orientation="horizontal">
+                {product.images.map((image) => (
+                  <button
+                    key={image}
+                    className="relative flex items-center justify-center h-24 bg-white rounded-md cursor-pointer focus:outline-none focus:ring focus:ring-opacity-50 focus:ring-amber-500"
+                    onClick={() => setMainImage(image)}
+                  >
+                    <span className="sr-only">View {product.name}</span>
+                    <img src={image || "/placeholder.svg"} alt="" className="object-cover object-center" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full aspect-w-1 aspect-h-1">
+              <img
+                src={mainImage || "/placeholder.svg"}
+                alt={product.name}
+                className="w-full h-full object-center object-cover sm:rounded-lg"
+              />
+            </div>
+          </motion.div>
+
+          {/* Product info */}
+          <motion.div
+            className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <h1 className="text-3xl font-extrabold tracking-tight text-amber-900">{product.name}</h1>
+
+            <div className="mt-3 flex items-center">
+              <div className="flex items-center">
+                {[0, 1, 2, 3, 4].map((rating) => (
+                  <Star
+                    key={rating}
+                    className={`h-5 w-5 flex-shrink-0 ${product.rating > rating ? "text-yellow-400" : "text-gray-300"}`}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+              <p className="ml-2 text-sm text-amber-700">{product.reviews} reviews</p>
+            </div>
+
+            <div className="mt-3">
+              <h2 className="sr-only">Product information</h2>
+              <p className="text-3xl text-amber-600">{product.price}</p>
+            </div>
+
+            <div className="mt-6">
+              <h3 className="sr-only">Description</h3>
+              <p className="text-base text-amber-800">{product.description}</p>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-sm text-amber-700">Artisan: {product.artisan}</p>
+              <p className="text-sm text-amber-700">Category: {product.category}</p>
+              <p className="text-sm text-amber-700">Origin: {product.origin}</p>
+            </div>
+
+            <div className="mt-10 flex sm:flex-col1">
+              <button
+                type="button"
+                className="max-w-xs flex-1 bg-amber-600 border border-transparent rounded-md py-3 px-8 flex items-center justify-center text-base font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-50 focus:ring-amber-500 sm:w-full"
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" aria-hidden="true" />
+                Add to cart
+              </button>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-amber-700 flex items-center justify-center">
+                <Truck className="mr-2 h-5 w-5" />
+                Free shipping on orders over ₹5,000
+              </p>
+            </div>
+
+            <div className="mt-10">
+              <h3 className="text-sm font-medium text-amber-900">Details</h3>
+              <div className="mt-4 prose prose-sm text-amber-700">
+                <p>{product.longDescription}</p>
+                <ul>
+                  <li>Dimensions: {product.dimensions}</li>
+                  <li>Weight: {product.weight}</li>
+                  <li>Materials: {product.materials.join(", ")}</li>
+                </ul>
+                <p>Care Instructions: {product.careInstructions}</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Related products */}
+        <div className="mt-16">
+          <h2 className="text-2xl font-extrabold tracking-tight text-amber-900">Related Products</h2>
+          <div className="mt-6 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+            {relatedProducts.map((relatedProduct) => (
+              <motion.div
+                key={relatedProduct.id}
+                className="group relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <div className="w-full min-h-80 bg-amber-200 aspect-w-1 aspect-h-1 rounded-md overflow-hidden group-hover:opacity-75 lg:h-80 lg:aspect-none">
+                  <img
+                    src={relatedProduct.image || "/placeholder.svg"}
+                    alt={relatedProduct.name}
+                    className="w-full h-full object-center object-cover lg:w-full lg:h-full"
+                  />
+                </div>
+                <div className="mt-4 flex justify-between">
+                  <div>
+                    <h3 className="text-sm text-amber-900">
+                      <Link href={`/products/${relatedProduct.id}`}>
+                        <span aria-hidden="true" className="absolute inset-0" />
+                        {relatedProduct.name}
+                      </Link>
+                    </h3>
+                  </div>
+                  <p className="text-sm font-medium text-amber-600">{relatedProduct.price}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+
+
+
+==================== /Users/jayvishvakarma/Downloads/ecommerce-platform/app/products/page.tsx ====================
+"use client"
+
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import Layout from "../components/Layout"
+import Link from "next/link"
+import { ChevronDown, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+
+const products = [
+  {
+    id: 1,
+    name: "Blue Pottery Vase",
+    price: 2500,
+    image: "/blue-pottery-vase.jpg",
+    artisan: "Rajesh Kumar",
+    category: "Blue Pottery",
+    state: "Rajasthan",
+  },
+  {
+    id: 2,
+    name: "Phulkari Dupatta",
+    price: 1800,
+    image: "/phulkari-dupatta.jpg",
+    artisan: "Harpreet Kaur",
+    category: "Phulkari",
+    state: "Punjab",
+  },
+  {
+    id: 3,
+    name: "Madhubani Painting",
+    price: 3500,
+    image: "/madhubani-painting.jpg",
+    artisan: "Sunita Devi",
+    category: "Madhubani",
+    state: "Bihar",
+  },
+  // Add more product objects here
+]
+
+const categories = [...new Set(products.map((product) => product.category))]
+const states = [...new Set(products.map((product) => product.state))]
+
+export default function ProductsPage() {
+  const [filters, setFilters] = useState({
+    category: "",
+    state: "",
+    priceRange: [0, 5000],
+  })
+  const [filteredProducts, setFilteredProducts] = useState(products)
+
+  useEffect(() => {
+    const newFilteredProducts = products.filter((product) => {
+      return (
+        (filters.category === "" || product.category === filters.category) &&
+        (filters.state === "" || product.state === filters.state) &&
+        product.price >= filters.priceRange[0] &&
+        product.price <= filters.priceRange[1]
+      )
+    })
+    setFilteredProducts(newFilteredProducts)
+  }, [filters])
+
+  const clearFilters = () => {
+    setFilters({
+      category: "",
+      state: "",
+      priceRange: [0, 5000],
+    })
+  }
+
+  return (
+    <Layout>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-3xl font-extrabold tracking-tight text-amber-900 sm:text-4xl">Our Products</h1>
+        <div className="mt-6 flex flex-col sm:flex-row justify-between items-start">
+          <p className="text-amber-800 text-lg mb-4 sm:mb-0">
+            Discover unique handcrafted items from talented Indian artisans.
+          </p>
+          <button onClick={clearFilters} className="flex items-center text-amber-600 hover:text-amber-700">
+            <X className="w-4 h-4 mr-1" />
+            Clear filters
+          </button>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-amber-700">
+              Category
+            </label>
+            <Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}>
+              <SelectTrigger id="category">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="state" className="block text-sm font-medium text-amber-700">
+              State
+            </label>
+            <Select value={filters.state} onValueChange={(value) => setFilters({ ...filters, state: value })}>
+              <SelectTrigger id="state">
+                <SelectValue placeholder="All States" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All States</SelectItem>
+                {states.map((state) => (
+                  <SelectItem key={state} value={state}>
+                    {state}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="price-range" className="block text-sm font-medium text-amber-700">
+              Price Range
+            </label>
+            <Slider
+              id="price-range"
+              min={0}
+              max={5000}
+              step={100}
+              value={filters.priceRange}
+              onValueChange={(value) => setFilters({ ...filters, priceRange: value })}
+              className="mt-2"
+            />
+            <div className="mt-2 flex justify-between text-sm text-amber-600">
+              <span>₹{filters.priceRange[0]}</span>
+              <span>₹{filters.priceRange[1]}</span>
+            </div>
+          </div>
+        </div>
+        <div className="mt-8 grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8">
+          {filteredProducts.map((product) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="group relative"
+            >
+              <div className="w-full min-h-80 bg-amber-200 aspect-w-1 aspect-h-1 rounded-md overflow-hidden group-hover:opacity-75 lg:h-80 lg:aspect-none">
+                <img
+                  src={product.image || "/placeholder.svg"}
+                  alt={product.name}
+                  className="w-full h-full object-center object-cover lg:w-full lg:h-full"
+                />
+              </div>
+              <div className="mt-4 flex justify-between">
+                <div>
+                  <h3 className="text-sm text-amber-900">
+                    <Link href={`/products/${product.id}`}>
+                      <span aria-hidden="true" className="absolute inset-0" />
+                      {product.name}
+                    </Link>
+                  </h3>
+                  <p className="mt-1 text-sm text-amber-700">{product.artisan}</p>
+                </div>
+                <p className="text-sm font-medium text-amber-900">₹{product.price}</p>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </Layout>
+  )
+}
+
+
+

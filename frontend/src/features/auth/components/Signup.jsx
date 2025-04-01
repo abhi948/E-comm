@@ -74,8 +74,8 @@ export const Signup = () => {
 
               <Stack flexDirection={'row'} justifyContent={'center'} alignItems={'center'}>
                   <Stack rowGap={'.4rem'}>
-                    <Typography variant='h2' sx={{wordBreak:"break-word"}} fontWeight={600}>Mern Shop</Typography>
-                    <Typography alignSelf={'flex-end'} color={'GrayText'} variant='body2'>- Shop Anything</Typography>
+                    <Typography variant='h2' sx={{wordBreak:"break-word"}} fontWeight={600}>Uuns</Typography>
+                    <Typography alignSelf={'flex-end'} color={'GrayText'} variant='body2'>- Shop Artisnal Product</Typography>
                   </Stack>
 
               </Stack>

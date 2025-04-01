@@ -15,6 +15,10 @@ const reviewRoutes=require("./routes/Review")
 const wishlistRoutes=require("./routes/Wishlist")
 const { connectToDB } = require("./database/db")
 
+// Add this near your other route imports
+const chatbotRoutes = require('./routes/ChatBotRoute.js');
+
+// Add this near your other app.use() routes
 
 // server init
 const server=express()
@@ -22,10 +26,12 @@ const server=express()
 // database connection
 connectToDB()
 
+server.use('/api/chatbot', chatbotRoutes);
 
 // middlewares
 server.use(cors({origin:process.env.ORIGIN,credentials:true,exposedHeaders:['X-Total-Count'],methods:['GET','POST','PATCH','DELETE']}))
 server.use(express.json())
+server.use(express.urlencoded({ extended: true }));
 server.use(cookieParser())
 server.use(morgan("tiny"))
 
